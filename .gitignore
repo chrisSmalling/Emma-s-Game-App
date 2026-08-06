@@ -1,0 +1,16 @@
+# Expo/React Native build artifacts
+node_modules/
+.expo/
+.expo-shared/assets.json
+dist/
+
+# Editor directories and files
+.vscode/
+.idea/
+.DS_Store
+
+# Yarn
+yarn-error.log
+
+# Mac
+*.iml
