@@ -4,7 +4,7 @@ This project supports a web-first workflow so you can iterate on the UX quickly 
 
 1. Install deps
 
-   npm ci
+   npm install
 
 2. Start the dev server (web)
 
@@ -13,10 +13,8 @@ This project supports a web-first workflow so you can iterate on the UX quickly 
 3. Open the served URL in your browser. On iPad/Android you can "Add to Home Screen" to get a PWA-like install.
 
 PWA notes
-- The web/manifest.json is included. Add `assets/icon.png` and `assets/icon-512.png` if you want custom icons for the PWA install.
-- All assets (images + audio + lottie) should be present under assets/ so they are bundled for offline use.
+- `web/manifest.json` and the icons it references (`assets/icon.png`, `assets/icon-512.png`) are committed.
+- All assets (fish/ocean images + audio) are committed under `assets/` so they're bundled for offline use.
 
 Audio on web
-- The app will use HTMLAudio + window.speechSynthesis on web for SFX and TTS. This keeps the experience immediate without native audio libraries.
-
-If you want me to commit the binary assets directly into the repo (PNG/MP3/JSON), say so and I will add them in the next commit.
+- `hooks/useSound.ts` uses `expo-audio`, `expo-speech`, and `expo-haptics` directly — all three ship a web implementation, so no separate web-only sound wrapper is needed.

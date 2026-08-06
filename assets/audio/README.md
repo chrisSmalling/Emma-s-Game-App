@@ -1,15 +1,13 @@
-Placeholder audio files are not included in the repo to avoid large binary commits.
+# Audio
 
-This folder should contain the following files for full audio behavior on web and native:
+- `pop.wav`, `chime.wav` — small, calm SFX synthesized in-code (no external
+  license needed). `pop` plays on every tap, `chime` plays once when a round
+  completes.
+- Spoken numbers, the cardinality restate ("Three fish!"), and the real-world
+  bridge prompts are all text-to-speech via `expo-speech` — no recorded voice
+  clips are bundled yet.
 
-- assets/audio/bubble-pop.mp3   // short bubble pop SFX (100-300ms)
-- assets/audio/chime.mp3        // gentle chime for round complete
-- assets/audio/confetti.mp3     // small celebration clip (optional)
-- assets/audio/1.mp3 ... 5.mp3   // optional recorded number clips if you provide them
-
-For now the web audio wrapper falls back to TTS if SFX files are missing. To use real audio, download CC0 Kenney audio clips and place them here.
-
-Recommended sources (CC0):
-- https://kenney.nl/assets
-
-After adding the .mp3 files, run `npx expo start --web` and the bundler will include them automatically.
+To swap in a real recorded voice later (recommended — kids respond strongly
+to a parent's voice): record short clips ("one", "two", ... "five", plus the
+bridge prompts) as `.wav`/`.mp3` files here, `require()` them in
+`hooks/useSound.ts`, and play them instead of calling `Speech.speak()`.

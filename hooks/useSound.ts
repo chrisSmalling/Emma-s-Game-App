@@ -1,110 +1,70 @@
-import { useEffect, useRef } from 'react';
-import { Audio } from 'expo-av';
+import { useEffect } from 'react';
 import * as Speech from 'expo-speech';
 import * as Haptics from 'expo-haptics';
+import { useAudioPlayer, setAudioModeAsync } from 'expo-audio';
 
-// Map names to bundled assets. Keep in sync with assets/audio/
-const AUDIO_MAP: Record<string, any> = {
-  '1': require('../assets/audio/1.mp3'),
-  '2': require('../assets/audio/2.mp3'),
-  '3': require('../assets/audio/3.mp3'),
-  '4': require('../assets/audio/4.mp3'),
-  '5': require('../assets/audio/5.mp3'),
-  total: require('../assets/audio/total.mp3'),
-  prompt: require('../assets/audio/prompt.mp3'),
-  confetti: require('../assets/audio/confetti.mp3'),
-};
+const POP_SOURCE = require('../assets/audio/pop.wav');
+const CHIME_SOURCE = require('../assets/audio/chime.wav');
+
+// A calm, consistent voice for every spoken line in the app.
+const VOICE_OPTIONS: Speech.SpeechOptions = { pitch: 1.05, rate: 0.9 };
 
 export default function useSound() {
-  const loadedSounds = useRef<Record<string, Audio.Sound | null>>({});
+  const pop = useAudioPlayer(POP_SOURCE);
+  const chime = useAudioPlayer(CHIME_SOURCE);
 
   useEffect(() => {
-    let mounted = true;
-
-    (async () => {
-      try {
-        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
-      } catch (e) {
-        // ignore
-      }
-
-      const keys = Object.keys(AUDIO_MAP);
-      for (const k of keys) {
-        try {
-          const module = AUDIO_MAP[k];
-          if (!module) continue;
-          const { sound } = await Audio.Sound.createAsync(module, { shouldPlay: false });
-          if (!mounted) break;
-          loadedSounds.current[k] = sound;
-        } catch (e) {
-          console.warn('Failed to preload audio', k, e);
-          loadedSounds.current[k] = null;
-        }
-      }
-    })();
-
-    return () => {
-      mounted = false;
-      const keys = Object.keys(loadedSounds.current);
-      keys.forEach(async k => {
-        const s = loadedSounds.current[k];
-        if (s) {
-          try {
-            await s.unloadAsync();
-          } catch (e) {}
-        }
-      });
-    };
+    setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
   }, []);
 
-  async function playBundledClip(name: string): Promise<boolean> {
+  function playPop() {
     try {
-      const sound = loadedSounds.current[name];
-      if (!sound) return false;
-      try {
-        await sound.replayAsync();
-        return true;
-      } catch (e) {
-        try {
-          await sound.playAsync();
-          return true;
-        } catch (e2) {
-          console.warn('Playback error for', name, e2);
-          return false;
-        }
-      }
-    } catch (e) {
-      console.warn('Bundled audio playback failed for', name, e);
-      return false;
+      pop.seekTo(0);
+      pop.play();
+    } catch {
+      // audio is a nice-to-have; never block the interaction on it
     }
   }
 
-  async function playNumber(n?: number | null) {
-    if (n == null) return;
-    const name = String(n);
-    const played = await playBundledClip(name);
-    if (!played) {
-      Speech.speak(String(n), { pitch: 1.05, rate: 0.95 });
+  function playChime() {
+    try {
+      chime.seekTo(0);
+      chime.play();
+    } catch {
+      // ignore
     }
-  }
-
-  async function playSfx(name: string) {
-    await playBundledClip(name);
   }
 
   function speak(text: string) {
-    Speech.speak(text);
+    try {
+      Speech.speak(text, VOICE_OPTIONS);
+    } catch {
+      // ignore
+    }
+  }
+
+  function playNumber(n?: number | null) {
+    if (n == null) return;
+    playPop();
+    speak(String(n));
+  }
+
+  function playTotal(n: number, noun: string) {
+    playChime();
+    speak(`${n} ${noun}!`);
   }
 
   function triggerHaptic() {
     try {
-      Haptics.selectionAsync();
-    } catch (e) {}
+      Haptics.selectionAsync().catch(() => {});
+    } catch {
+      // ignore
+    }
   }
 
   return {
     playNumber,
-    playSfx,
+    playTotal,
     speak,
     triggerHaptic,
   } as const;

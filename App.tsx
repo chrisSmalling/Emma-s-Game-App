@@ -1,97 +1,157 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, Pressable, Modal } from 'react-native';
-import { useFonts, Fredoka_400Regular, Fredoka_700Bold, Fredoka_800ExtraBold } from '@expo-google-fonts/fredoka';
+import { StyleSheet, Text, View } from 'react-native';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { useFonts, Fredoka_400Regular, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
+
 import useCounting from './hooks/useCounting';
 import useSound from './hooks/useSound';
 import OceanBackground from './components/OceanBackground';
 import Fish from './components/Fish';
 import CelebrationOverlay from './components/CelebrationOverlay';
+import SessionComplete from './components/SessionComplete';
+import ParentGate from './components/ParentGate';
+import SettingsScreen from './components/SettingsScreen';
 import THEME from './constants/theme';
+import { bridgePromptForRound, COPLAY_HINT, NOUN } from './constants/content';
 
-export default function App() {
-  const { items, countedCount, initRound, onTapIndex, isRoundComplete } = useCounting(1);
+function Game() {
+  const { round, roundsPerSession, items, countedCount, phase, highestCountReached, tapItem, nextRound, restartSession } =
+    useCounting();
   const sound = useSound();
-
-  useEffect(() => {
-    initRound(1);
-  }, []);
+  const [settingsVisible, setSettingsVisible] = useState(false);
 
   const [fontsLoaded] = useFonts({
     Fredoka_400Regular,
+    Fredoka_600SemiBold,
     Fredoka_700Bold,
-    Fredoka_800ExtraBold,
   });
+
+  useEffect(() => {
+    if (phase === 'roundComplete') {
+      sound.playTotal(round, NOUN);
+      const t = setTimeout(() => sound.speak(bridgePromptForRound(round)), 1600);
+      return () => clearTimeout(t);
+    }
+    if (phase === 'sessionComplete') {
+      sound.speak('Great counting today!');
+    }
+    return undefined;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, round]);
 
   if (!fontsLoaded) return null;
 
   function handleTap(index: number) {
-    const res = onTapIndex(index);
-    if (!res) return;
-    const { assignedOrder, isNew } = res as { assignedOrder: number | null; isNew: boolean };
-    if (assignedOrder == null) return;
-
-    // Side-effects: play number, sfx, haptic. Animations handled in Fish.
-    sound.playSfx('confetti'); // small pop
+    const result = tapItem(index);
+    if (!result || result.assignedOrder == null) return;
     sound.triggerHaptic();
-    sound.playNumber(assignedOrder);
+    sound.playNumber(result.assignedOrder);
+  }
+
+  if (phase === 'roundComplete') {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <CelebrationOverlay
+          total={round}
+          bridgePrompt={bridgePromptForRound(round)}
+          isLastRound={round >= roundsPerSession}
+          onNext={nextRound}
+        />
+      </View>
+    );
+  }
+
+  if (phase === 'sessionComplete') {
+    return (
+      <View style={styles.container}>
+        <StatusBar style="light" />
+        <SessionComplete highestCountReached={highestCountReached} onPlayAgain={restartSession} />
+      </View>
+    );
   }
 
   return (
-    <View style={styles.container}>
-      <StatusBar style="auto" />
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
+      <StatusBar style="dark" />
+
       <View style={styles.topBand}>
-        <Text style={styles.title}>Count the fish!</Text>
-        <Text accessibilityRole="header" style={styles.runningCount}>{countedCount}</Text>
+        <View style={styles.topBandLeft}>
+          <Text style={styles.title}>Count the fish!</Text>
+          <Text style={styles.roundLabel}>Round {round} of {roundsPerSession}</Text>
+        </View>
+        <View style={styles.topBandRight}>
+          <View style={styles.countBadge} accessibilityRole="header">
+            <Text style={styles.countBadgeText}>{countedCount}</Text>
+          </View>
+          <ParentGate onUnlock={() => setSettingsVisible(true)} />
+        </View>
       </View>
 
-      {isRoundComplete() ? (
-        <Modal visible animationType="slide">
-          <CelebrationOverlay
-            total={items.length}
-            onContinue={() => {
-              // reset to next round
-              const next = Math.min(items.length + 1, 5);
-              initRound(next);
-            }}
-          />
-        </Modal>
-      ) : (
-        <View style={styles.scene}>
-          <OceanBackground />
-          <View style={styles.fishRow}>
-            {items.map((it, i) => (
-              <Fish
-                key={it.id}
-                index={i}
-                counted={it.counted}
-                order={it.order ?? null}
-                onPress={() => handleTap(i)}
-              />
-            ))}
-          </View>
+      <View style={styles.scene}>
+        <OceanBackground />
+        <View style={styles.fishRow}>
+          {items.map((it, i) => (
+            <Fish key={it.id} index={i} counted={it.counted} order={it.order} onPress={() => handleTap(i)} />
+          ))}
         </View>
-      )}
+      </View>
 
       <View style={styles.bottomBand}>
-        <Text style={styles.prompt}>Round — Tap each fish once</Text>
-        <Pressable onPress={() => initRound(1)} style={styles.nextButton} accessibilityRole="button">
-          <Text style={styles.nextText}>Reset</Text>
-        </Pressable>
+        <Text style={styles.prompt}>Tap each fish once to count it</Text>
+        <Text style={styles.coplay}>{COPLAY_HINT}</Text>
       </View>
-    </View>
+
+      <SettingsScreen
+        visible={settingsVisible}
+        highestCountReached={highestCountReached}
+        onClose={() => setSettingsVisible(false)}
+      />
+    </SafeAreaView>
+  );
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <Game />
+    </SafeAreaProvider>
   );
 }
 
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: THEME.COLORS.surfaceWater },
-  topBand: { height: 80, paddingTop: 36, paddingHorizontal: 20, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
-  title: { fontSize: THEME.TYPE.title, fontFamily: THEME.TYPE.fontFamily, color: '#fff', fontWeight: '700' as any },
-  runningCount: { fontSize: 28, fontFamily: THEME.TYPE.fontFamily, color: '#fff', fontWeight: '800' as any },
-  scene: { flex: 1, alignItems: 'center', justifyContent: 'center' },
-  fishRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', paddingHorizontal: 20 },
-  bottomBand: { height: 120, padding: 20, alignItems: 'center', backgroundColor: THEME.COLORS.sandyFloor },
-  prompt: { marginBottom: 12, fontSize: THEME.TYPE.body, fontFamily: THEME.TYPE.fontFamily },
-  nextButton: { backgroundColor: THEME.COLORS.accent, paddingHorizontal: 28, paddingVertical: 12, borderRadius: 10 },
-  nextText: { color: '#fff', fontSize: 18, fontFamily: THEME.TYPE.fontFamily },
+  topBand: {
+    height: 72,
+    paddingHorizontal: THEME.SPACING.xl,
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: THEME.COLORS.midWater,
+  },
+  topBandLeft: { flexShrink: 1 },
+  topBandRight: { flexDirection: 'row', alignItems: 'center', gap: THEME.SPACING.m },
+  title: { fontSize: THEME.TYPE.title, fontFamily: THEME.TYPE.fontFamilyBold, color: '#fff' },
+  roundLabel: { fontSize: THEME.TYPE.small, fontFamily: THEME.TYPE.fontFamily, color: 'rgba(255,255,255,0.85)' },
+  countBadge: {
+    minWidth: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: THEME.COLORS.celebration,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 10,
+  },
+  countBadgeText: { fontSize: 22, fontFamily: THEME.TYPE.fontFamilyBold, color: THEME.COLORS.deepWater },
+  scene: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
+  fishRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', paddingHorizontal: THEME.SPACING.l, zIndex: 1 },
+  bottomBand: {
+    minHeight: 84,
+    padding: THEME.SPACING.l,
+    alignItems: 'center',
+    backgroundColor: THEME.COLORS.sandyFloor,
+  },
+  prompt: { fontSize: THEME.TYPE.body, fontFamily: THEME.TYPE.fontFamilyBold, color: THEME.COLORS.deepWater },
+  coplay: { fontSize: THEME.TYPE.small, fontFamily: THEME.TYPE.fontFamily, color: '#5b4a2f', marginTop: 4 },
 });

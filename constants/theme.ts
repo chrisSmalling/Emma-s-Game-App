@@ -25,9 +25,11 @@ export const TYPE = {
   title: 24,
   body: 16,
   small: 14,
-  // Use the heaviest available weight for numbers (Fredoka: use 700/800 as available).
-  numberWeight: '800',
-  fontFamily: 'Fredoka',
+  // @expo-google-fonts registers each weight as its own family name — there is
+  // no single "Fredoka" family to combine with fontWeight. Pick the right one.
+  fontFamily: 'Fredoka_400Regular',
+  fontFamilySemiBold: 'Fredoka_600SemiBold',
+  fontFamilyBold: 'Fredoka_700Bold',
 } as const;
 
 export const MOTION = {

@@ -8,9 +8,9 @@ Contract (read this before adding UI colors, fonts, or motion):
 - Font: The app uses a single rounded family: Fredoka. Do not introduce another font.
   Numbers should use the heaviest available weight in the Fredoka family.
 
-- Motion: Use the motion tokens in theme.MOTION. Taps use the spring config; bubbles use the bubble timing; celebration uses the single Lottie.
+- Motion: Use the motion tokens in theme.MOTION. Taps use the spring config; bubbles use the bubble timing.
 
-- One Lottie rule: Only one Lottie animation (a CC0/commercial-safe bubbles/stars) is used for the round-complete celebration. Do not use Lottie for taps or small transitions.
+- Celebration is code-driven (Confetti + CelebrationOverlay), not Lottie — this keeps the web bundle small and avoids a native-only dependency before the app has been user-tested. Revisit Lottie post-MVP if you want a fancier celebration.
 
 - No network / no analytics: The app must remain local-only. Do not add third-party tracking or network calls.
 

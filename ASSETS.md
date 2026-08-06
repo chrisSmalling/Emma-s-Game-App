@@ -1,27 +1,26 @@
-# ASSETS and licensing
+# Assets and licensing
 
-This file documents the CC0 assets I selected for the Ocean Counting build. These are free-to-use (CC0 / public domain / commercial-safe) assets you can drop into the `assets/` folder. I did not add binary assets to the repo to avoid large blobs in git — download them and place them under the paths below.
+All assets below are committed to the repo — nothing to download.
 
-Recommended assets (CC0 Kenney + LottieFiles)
+## Fish (`assets/fish/kenney/`)
+Kenney "Fish Pack" (CC0 / public domain, commercial-safe, no attribution
+required). Source: https://kenney.nl/assets
 
-1) Fish art (Kenney — CC0)
-- Source pack: Kenney "Fish Pack" or the Game Icons fish on https://kenney.nl/assets
-- Suggested files to add: `assets/fish/fish_orange.png`, `assets/fish/fish_pink.png`, `assets/fish/fish_yellow.png`
-- License: CC0 (public domain)
+## Ocean scene (`assets/ocean/`)
+Sand tile, seaweed, bubbles, and rock sprites, also Kenney CC0.
 
-2) Sound effects (Kenney / CC0)
-- Bubble pop: `assets/audio/bubble-pop.mp3` (small, ~100-300ms)
-- Gentle chime: `assets/audio/chime.mp3` (short, calm)
-- Celebration voice (optional fallback): `assets/audio/celebration-voice.mp3` (short "Yay! Great counting!")
-- Source: Kenney audio packs (https://kenney.nl/assets)
+## Icons (`assets/icon.png`, `assets/favicon.png`, `assets/adaptive-icon.png`, `assets/icon-512.png`)
+Generated placeholders (a simple coral fish on a water gradient). Swap these
+for real artwork before an App Store submission — see `app.json`'s `icon` /
+`android.adaptiveIcon` / `web.favicon` fields.
 
-3) Lottie celebration (bubbles/stars — verify license before shipping)
-- Example Lottie (CC0/commercial-safe candidate): https://lottiefiles.com/ (search "bubbles" or "celebration")
-- Download and place as `assets/lottie/celebration.json`.
+## Audio (`assets/audio/`)
+`pop.wav` and `chime.wav` are synthesized in code (see
+`assets/audio/README.md`) — original, no licensing concerns. All spoken
+lines are text-to-speech via `expo-speech` for now.
 
-How to add assets
-1. Download the PNG/MP3/JSON files to your machine.
-2. Place them under the `assets/` path shown above.
-3. The app references those paths; when you run `npx expo start --web` the bundler will include them.
-
-If you want, I can also add the binary files to the repo (committed under `assets/`) — say so and I will add them in a follow-up commit.
+## Licensing note (matters because you plan to sell this)
+Everything above is CC0 or originally generated — safe to ship commercially.
+If you add more art or audio later, stick to CC0 / public-domain sources
+(Kenney, or your own recordings); many "free" asset sites are not
+commercial-safe.
