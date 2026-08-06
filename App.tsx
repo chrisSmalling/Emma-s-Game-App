@@ -25,6 +25,7 @@ const AUDIO_MAP: Record<string, any> = {
   '5': require('./assets/audio/5.mp3'),
   total: require('./assets/audio/total.mp3'),
   prompt: require('./assets/audio/prompt.mp3'),
+  confetti: require('./assets/audio/confetti.mp3'),
 };
 
 export default function App() {
@@ -162,6 +163,9 @@ export default function App() {
     // Cardinality moment: restate total and a brief celebration
     setShowCongrats(true);
     const total = items.length;
+
+    // Play a brief confetti sound immediately with the visual effect. If it fails, ignore and continue.
+    playBundledClip('confetti').catch(() => {});
 
     // Try to play a short celebration + restatement using bundled clips. If either fails, fall back to TTS.
     const playedTotal = await playBundledClip('total');
