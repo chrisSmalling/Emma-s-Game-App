@@ -33,7 +33,9 @@ export default function App() {
   const [showCongrats, setShowCongrats] = useState(false);
   const [highest, setHighest] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
+  const [soundsLoaded, setSoundsLoaded] = useState(false);
   const holdTimer = useRef<NodeJS.Timeout | null>(null);
+  const loadedSounds = useRef<Record<string, Audio.Sound | null>>({});
 
   useEffect(() => {
     initRound(round);
@@ -45,6 +47,42 @@ export default function App() {
         console.warn('AsyncStorage load failed', e);
       }
     })();
+
+    // Preload bundled audio clips at startup. If any clip fails to load, we keep going and rely on TTS fallback.
+    (async () => {
+      try {
+        await Audio.setAudioModeAsync({ playsInSilentModeIOS: true });
+      } catch (e) {
+        // ignore
+      }
+
+      const keys = Object.keys(AUDIO_MAP);
+      for (const k of keys) {
+        try {
+          const module = AUDIO_MAP[k];
+          if (!module) continue;
+          const { sound } = await Audio.Sound.createAsync(module, { shouldPlay: false });
+          loadedSounds.current[k] = sound;
+        } catch (e) {
+          console.warn('Failed to preload audio', k, e);
+          loadedSounds.current[k] = null;
+        }
+      }
+      setSoundsLoaded(true);
+    })();
+
+    return () => {
+      // Unload all sounds on unmount
+      const keys = Object.keys(loadedSounds.current);
+      keys.forEach(async (k) => {
+        const s = loadedSounds.current[k];
+        if (s) {
+          try {
+            await s.unloadAsync();
+          } catch (e) {}
+        }
+      });
+    };
   }, []);
 
   useEffect(() => {
@@ -61,20 +99,25 @@ export default function App() {
   }
 
   async function playBundledClip(name: string): Promise<boolean> {
-    // Try to play a bundled clip. Return true if playback started, false to indicate fallback.
+    // Try to play a preloaded bundled clip. Return true if playback started, false to indicate fallback.
     try {
-      const module = AUDIO_MAP[name];
-      if (!module) return false;
-      const { sound } = await Audio.Sound.createAsync(module, { shouldPlay: true });
-      // Let it play and then unload
-      sound.setOnPlaybackStatusUpdate((status) => {
-        if (status.isLoaded && status.didJustFinish) {
-          sound.unloadAsync().catch(() => {});
+      const sound = loadedSounds.current[name];
+      if (!sound) return false;
+      // replay from start
+      try {
+        await sound.replayAsync();
+        return true;
+      } catch (e) {
+        // if replayAsync fails try playAsync
+        try {
+          await sound.playAsync();
+          return true;
+        } catch (e2) {
+          console.warn('Playback error for', name, e2);
+          return false;
         }
-      });
-      return true;
+      }
     } catch (e) {
-      // Playback failed — likely because placeholder clip isn't a real audio file on device
       console.warn('Bundled audio playback failed for', name, e);
       return false;
     }
@@ -127,6 +170,11 @@ export default function App() {
       setTimeout(() => {
         Speech.speak(`${total} ducks!`);
       }, 600);
+
+      // Follow-up prompt after a short delay
+      setTimeout(() => {
+        Speech.speak('Now count your fingers!');
+      }, 1500);
     } else {
       // After total clip, play prompt clip (if available)
       setTimeout(async () => {
