@@ -1,6 +1,6 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
-import { StyleSheet, View, Text, Pressable, Animated, Dimensions, Modal, Alert } from 'react-native';
+import { StyleSheet, View, Text, Pressable, Animated, Dimensions, Modal, Alert, AccessibilityInfo } from 'react-native';
 import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
@@ -93,6 +93,15 @@ export default function App() {
     }
   }, [countedCount, items]);
 
+  useEffect(() => {
+    // Announce when settings modal opens/closes for screen readers
+    if (settingsOpen) {
+      AccessibilityInfo.announceForAccessibility('Parent settings opened');
+    } else {
+      AccessibilityInfo.announceForAccessibility('Parent settings closed');
+    }
+  }, [settingsOpen]);
+
   function initRound(n: number) {
     const arr: ItemState[] = Array.from({ length: n }, (_, i) => ({ id: i, counted: false, anim: new Animated.Value(0) }));
     setItems(arr);
@@ -129,8 +138,8 @@ export default function App() {
     const name = String(n);
     const played = await playBundledClip(name);
     if (!played) {
-      // Fallback to system TTS
-      Speech.speak(String(n), { pitch: 1.0, rate: 0.9 });
+      // Fallback to system TTS (use a consistent female-like pitch)
+      Speech.speak(String(n), { pitch: 1.05, rate: 0.95 });
     }
   }
 
@@ -163,6 +172,9 @@ export default function App() {
     // Cardinality moment: restate total and a brief celebration
     setShowCongrats(true);
     const total = items.length;
+
+    // Announce via screen reader so TalkBack/VoiceOver users hear the same cardinality moment
+    AccessibilityInfo.announceForAccessibility(`Yay! ${total} ducks!`);
 
     // Play a brief confetti sound immediately with the visual effect. If it fails, ignore and continue.
     playBundledClip('confetti').catch(() => {});
@@ -225,7 +237,16 @@ export default function App() {
   const itemViews = items.map((it, i) => {
     const scale = it.anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.2] });
     return (
-      <Pressable key={it.id} onPress={() => onTapItem(i)} style={{ margin: 8 }}>
+      <Pressable
+        key={it.id}
+        onPress={() => onTapItem(i)}
+        style={{ margin: 8 }}
+        hitSlop={{ top: 24, bottom: 24, left: 24, right: 24 }}
+        accessibilityRole="button"
+        accessibilityLabel={`Duck ${i + 1}${it.counted ? ', counted' : ''}`}
+        accessibilityHint="Tap to hear the number"
+        accessibilityState={{ selected: it.counted }}
+      >
         <Animated.View
           style={[
             styles.item,
@@ -244,7 +265,14 @@ export default function App() {
       <StatusBar style="auto" />
       <View style={styles.header}>
         <Text accessible accessibilityRole="header" style={styles.title}>Count with me!</Text>
-        <Pressable onPressIn={onParentGatePressIn} onPressOut={onParentGatePressOut} accessibilityLabel="Parent settings">
+        <Pressable
+          onPressIn={onParentGatePressIn}
+          onPressOut={onParentGatePressOut}
+          accessibilityLabel="Parent settings"
+          accessibilityHint="Press and hold for two seconds to open parent settings"
+          accessibilityRole="button"
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
           <View style={styles.lock}>
             <Text style={{ fontSize: 18 }}>🔒</Text>
           </View>
@@ -269,16 +297,30 @@ export default function App() {
 
       <View style={styles.footer}>
         <Text style={styles.prompt}>Round {round} — Tap each duck once</Text>
-        <Pressable onPress={onNextRound} style={styles.nextButton} accessibilityLabel="Next round">
+        <Pressable
+          onPress={onNextRound}
+          style={styles.nextButton}
+          accessibilityLabel="Next round"
+          accessibilityHint="Go to the next round"
+          accessibilityRole="button"
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
           <Text style={styles.nextText}>Next</Text>
         </Pressable>
       </View>
 
       <Modal visible={settingsOpen} animationType="slide" onRequestClose={() => setSettingsOpen(false)}>
         <View style={styles.settings}>
-          <Text style={styles.settingsTitle}>Settings (placeholder)</Text>
+          <Text accessibilityRole="header" style={styles.settingsTitle}>Settings (placeholder)</Text>
           <Text style={styles.settingsNote}>Parent-gated placeholder. Nothing to configure in v1.</Text>
-          <Pressable onPress={() => setSettingsOpen(false)} style={styles.closeButton}>
+          <Pressable
+            onPress={() => setSettingsOpen(false)}
+            style={styles.closeButton}
+            accessibilityLabel="Close settings"
+            accessibilityHint="Closes the parent settings"
+            accessibilityRole="button"
+            hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+          >
             <Text style={styles.closeText}>Close</Text>
           </Pressable>
         </View>
