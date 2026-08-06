@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, View, Text, Pressable, Animated, Dimensions, Modal, Alert } from 'react-native';
 import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { Audio } from 'expo-av';
 
 const { width } = Dimensions.get('window');
 const MAX_ROUNDS = 5;
@@ -12,6 +13,17 @@ type ItemState = {
   id: number;
   counted: boolean;
   anim: Animated.Value;
+};
+
+// Bundled audio map — these files are placeholders in assets/audio/
+const AUDIO_MAP: Record<string, any> = {
+  '1': require('./assets/audio/1.mp3'),
+  '2': require('./assets/audio/2.mp3'),
+  '3': require('./assets/audio/3.mp3'),
+  '4': require('./assets/audio/4.mp3'),
+  '5': require('./assets/audio/5.mp3'),
+  total: require('./assets/audio/total.mp3'),
+  prompt: require('./assets/audio/prompt.mp3'),
 };
 
 export default function App() {
@@ -48,10 +60,33 @@ export default function App() {
     setShowCongrats(false);
   }
 
-  function playNumber(n: number) {
-    // Placeholder: use system TTS to model the number immediately.
-    // Replace with bundled audio via expo-av when you add assets.
-    Speech.speak(String(n), { pitch: 1.0, rate: 0.9 });
+  async function playBundledClip(name: string): Promise<boolean> {
+    // Try to play a bundled clip. Return true if playback started, false to indicate fallback.
+    try {
+      const module = AUDIO_MAP[name];
+      if (!module) return false;
+      const { sound } = await Audio.Sound.createAsync(module, { shouldPlay: true });
+      // Let it play and then unload
+      sound.setOnPlaybackStatusUpdate((status) => {
+        if (status.isLoaded && status.didJustFinish) {
+          sound.unloadAsync().catch(() => {});
+        }
+      });
+      return true;
+    } catch (e) {
+      // Playback failed — likely because placeholder clip isn't a real audio file on device
+      console.warn('Bundled audio playback failed for', name, e);
+      return false;
+    }
+  }
+
+  async function playNumber(n: number) {
+    const name = String(n);
+    const played = await playBundledClip(name);
+    if (!played) {
+      // Fallback to system TTS
+      Speech.speak(String(n), { pitch: 1.0, rate: 0.9 });
+    }
   }
 
   function onTapItem(index: number) {
@@ -83,11 +118,24 @@ export default function App() {
     // Cardinality moment: restate total and a brief celebration
     setShowCongrats(true);
     const total = items.length;
-    // One short celebration: a single chime via TTS and a restatement
-    Speech.speak('Yay!', { pitch: 1.2, rate: 1.0 });
-    setTimeout(() => {
-      Speech.speak(`${total} ducks!`);
-    }, 600);
+
+    // Try to play a short celebration + restatement using bundled clips. If either fails, fall back to TTS.
+    const playedTotal = await playBundledClip('total');
+    if (!playedTotal) {
+      // Short chime + restatement via TTS
+      Speech.speak('Yay!', { pitch: 1.2, rate: 1.0 });
+      setTimeout(() => {
+        Speech.speak(`${total} ducks!`);
+      }, 600);
+    } else {
+      // After total clip, play prompt clip (if available)
+      setTimeout(async () => {
+        const playedPrompt = await playBundledClip('prompt');
+        if (!playedPrompt) {
+          Speech.speak('Now count your fingers!');
+        }
+      }, 900);
+    }
 
     try {
       const newHighest = Math.max(highest, total);

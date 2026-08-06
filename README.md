@@ -1,19 +1,19 @@
 # Little Counter — Repo scaffold
 
-This commit adds an Expo + TypeScript scaffold for the Little Counter app (v1 MVP).
+This commit updates the app to use bundled audio clips for voice modeling via expo-av, with a TTS fallback when assets fail.
 
 Notes:
-- Offline-first. No network calls or analytics.
-- Uses expo-speech as a fallback placeholder for bundled audio clips. You can replace TTS with bundled clip playback via expo-av and require('./assets/audio/1.mp3').
-- Persistence: AsyncStorage stores `highestCountReached`.
+- Added expo-av to dependencies.
+- Added placeholder audio files in assets/audio/. Replace these with your recorded clips later.
+- The app will try to play bundled clips first and fall back to system TTS if playback fails.
 
 Run locally:
 1. npm install
 2. npx expo start
-3. Open in Expo Go on device (works offline for core logic; Text-to-Speech uses system TTS)
+3. Open in Expo Go on device (works offline for core logic; audio assets are bundled in the app)
 
 Next steps I can do for you:
-- Add real bundled audio assets and demo clips
-- Improve animations and add confetti asset
-- Add tests and CI
+- Add short real mp3 clips (I can add sample non-startling clips if you want)
+- Improve load-time by preloading sounds at startup
+- Add a simple test harness for audio playback
 
