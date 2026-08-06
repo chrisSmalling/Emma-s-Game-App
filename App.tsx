@@ -4,6 +4,7 @@ import { StyleSheet, View, Text, Pressable, Animated, Dimensions, Modal, Alert }
 import * as Speech from 'expo-speech';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Audio } from 'expo-av';
+import Confetti from './components/Confetti';
 
 const { width } = Dimensions.get('window');
 const MAX_ROUNDS = 5;
@@ -258,6 +259,9 @@ export default function App() {
           <Text style={styles.congratsText}>🎉</Text>
         </View>
       )}
+
+      {/* Confetti runs when showCongrats is true */}
+      <Confetti trigger={showCongrats} />
 
       <View style={styles.footer}>
         <Text style={styles.prompt}>Round {round} — Tap each duck once</Text>
