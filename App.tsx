@@ -14,6 +14,7 @@ type ItemState = {
   id: number;
   counted: boolean;
   anim: Animated.Value;
+  order?: number | null; // assigned counting order once tapped
 };
 
 // Bundled audio map — these files are placeholders in assets/audio/
@@ -36,7 +37,7 @@ export default function App() {
   const [highest, setHighest] = useState(0);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [soundsLoaded, setSoundsLoaded] = useState(false);
-  const holdTimer = useRef<NodeJS.Timeout | null>(null);
+  const holdTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const loadedSounds = useRef<Record<string, Audio.Sound | null>>({});
 
   useEffect(() => {
@@ -103,7 +104,7 @@ export default function App() {
   }, [settingsOpen]);
 
   function initRound(n: number) {
-    const arr: ItemState[] = Array.from({ length: n }, (_, i) => ({ id: i, counted: false, anim: new Animated.Value(0) }));
+    const arr: ItemState[] = Array.from({ length: n }, (_, i) => ({ id: i, counted: false, anim: new Animated.Value(0), order: null }));
     setItems(arr);
     setCountedCount(0);
     setShowCongrats(false);
@@ -134,7 +135,8 @@ export default function App() {
     }
   }
 
-  async function playNumber(n: number) {
+  async function playNumber(n: number | null | undefined) {
+    if (n == null) return;
     const name = String(n);
     const played = await playBundledClip(name);
     if (!played) {
@@ -144,28 +146,30 @@ export default function App() {
   }
 
   function onTapItem(index: number) {
-    setItems(prev => {
-      const next = prev.map((it, i) => {
-        if (i === index) {
-          if (!it.counted) {
-            // animate bounce + glow
-            Animated.sequence([
-              Animated.timing(it.anim, { toValue: 1, duration: 200, useNativeDriver: true }),
-              Animated.timing(it.anim, { toValue: 0, duration: 200, useNativeDriver: true }),
-            ]).start();
-            setCountedCount(c => c + 1);
-            playNumber(index + 1);
-            return { ...it, counted: true };
-          } else {
-            // re-say number
-            playNumber(index + 1);
-            return it;
-          }
-        }
-        return it;
-      });
-      return next;
-    });
+    const it = items[index];
+    if (!it) return;
+
+    // If already counted, re-say the assigned order
+    if (it.counted) {
+      playNumber(it.order ?? index + 1);
+      return;
+    }
+
+    // Compute the tap-order number (running count) and perform side-effects OUTSIDE the state updater
+    const thisNumber = countedCount + 1;
+
+    // Animate the tapped duck
+    Animated.sequence([
+      Animated.timing(it.anim, { toValue: 1, duration: 200, useNativeDriver: true }),
+      Animated.timing(it.anim, { toValue: 0, duration: 200, useNativeDriver: true }),
+    ]).start();
+
+    // Speak the running count (and/or bundled clip)
+    playNumber(thisNumber);
+
+    // Update state immutably, pure updater only
+    setItems(prev => prev.map((x, i) => i === index ? { ...x, counted: true, order: thisNumber } : x));
+    setCountedCount(c => c + 1);
   }
 
   async function onRoundComplete() {
@@ -217,6 +221,7 @@ export default function App() {
       initRound(round + 1);
     } else {
       // natural stopping point after ~5 rounds
+      // replaced Alert for now with a softer UX note — keep Alert for dev builds
       Alert.alert('Great counting!', 'You completed the session. Tap Next to play again or close the app.');
       setRound(1);
       initRound(1);
@@ -236,6 +241,7 @@ export default function App() {
 
   const itemViews = items.map((it, i) => {
     const scale = it.anim.interpolate({ inputRange: [0, 1], outputRange: [1, 1.2] });
+    const accessibilityLabel = it.counted && it.order != null ? `Duck, counted, number ${it.order}` : 'Duck';
     return (
       <Pressable
         key={it.id}
@@ -243,7 +249,7 @@ export default function App() {
         style={{ margin: 8 }}
         hitSlop={{ top: 24, bottom: 24, left: 24, right: 24 }}
         accessibilityRole="button"
-        accessibilityLabel={`Duck ${i + 1}${it.counted ? ', counted' : ''}`}
+        accessibilityLabel={accessibilityLabel}
         accessibilityHint="Tap to hear the number"
         accessibilityState={{ selected: it.counted }}
       >
