@@ -1,6 +1,15 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Image, Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect } from 'react';
+import { Image, Pressable, StyleSheet } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withSpring,
+  withTiming,
+} from 'react-native-reanimated';
 import THEME from '../constants/theme';
+import CountBubble from './CountBubble';
 
 type Props = {
   index: number;
@@ -17,27 +26,32 @@ const FISH_SOURCES = [
 ];
 
 export default function Fish({ index, counted, order, onPress }: Props) {
-  const scale = useRef(new Animated.Value(1)).current;
-  const bob = useRef(new Animated.Value(0)).current;
+  const scale = useSharedValue(1);
+  const bob = useSharedValue(0);
 
   useEffect(() => {
-    const loop = Animated.loop(
-      Animated.sequence([
-        Animated.timing(bob, { toValue: -8, duration: 1500 + index * 120, useNativeDriver: true }),
-        Animated.timing(bob, { toValue: 0, duration: 1500 + index * 120, useNativeDriver: true }),
-      ])
+    const duration = 1500 + index * 120;
+    bob.value = withRepeat(
+      withSequence(withTiming(-8, { duration }), withTiming(0, { duration })),
+      -1,
+      false
     );
-    loop.start();
-    return () => loop.stop();
-  }, [bob, index]);
+    // bob is a stable shared value ref; only re-run this when the fish's
+    // own idle-bob timing offset (index) changes.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [index]);
 
   function handlePress() {
-    Animated.sequence([
-      Animated.spring(scale, { toValue: 1.25, useNativeDriver: true, ...THEME.MOTION.spring }),
-      Animated.spring(scale, { toValue: 1, useNativeDriver: true, ...THEME.MOTION.spring }),
-    ]).start();
+    scale.value = withSequence(
+      withSpring(1.25, THEME.MOTION.spring),
+      withSpring(1, THEME.MOTION.spring)
+    );
     onPress();
   }
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: bob.value }, { scale: scale.value }],
+  }));
 
   const src = FISH_SOURCES[index % FISH_SOURCES.length];
   const label = counted && order != null ? `Fish, counted number ${order}` : 'Fish, not yet counted';
@@ -52,13 +66,9 @@ export default function Fish({ index, counted, order, onPress }: Props) {
       hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
       style={styles.hitArea}
     >
-      <Animated.View style={[styles.fish, { transform: [{ translateY: bob }, { scale }] }, counted && styles.counted]}>
+      <Animated.View style={[styles.fish, animatedStyle, counted && styles.counted]}>
         <Image source={src} style={styles.image} resizeMode="contain" />
-        {counted && order != null && (
-          <View style={styles.numberBubble}>
-            <Text style={styles.numberText}>{order}</Text>
-          </View>
-        )}
+        {counted && order != null && <CountBubble order={order} />}
       </Animated.View>
     </Pressable>
   );
@@ -85,19 +95,4 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 0 },
     elevation: 6,
   },
-  numberBubble: {
-    position: 'absolute',
-    top: -14,
-    right: -6,
-    backgroundColor: THEME.COLORS.counted,
-    minWidth: 28,
-    height: 28,
-    borderRadius: 14,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 6,
-    borderWidth: 2,
-    borderColor: '#fff',
-  },
-  numberText: { color: '#fff', fontFamily: THEME.TYPE.fontFamilyBold, fontSize: 14 },
 });
