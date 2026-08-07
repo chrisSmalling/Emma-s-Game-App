@@ -17,18 +17,20 @@ export default function useSound() {
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
   }, []);
 
-  function playPop() {
+  async function playPop() {
     try {
-      pop.seekTo(0);
+      // seekTo is async on native (bridge call) — await it before play() so a
+      // rapid re-tap doesn't start playback mid-seek and skip the pop.
+      await pop.seekTo(0);
       pop.play();
     } catch {
       // audio is a nice-to-have; never block the interaction on it
     }
   }
 
-  function playChime() {
+  async function playChime() {
     try {
-      chime.seekTo(0);
+      await chime.seekTo(0);
       chime.play();
     } catch {
       // ignore
