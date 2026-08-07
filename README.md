@@ -1,9 +1,14 @@
 # Little Counter — Ocean Edition
 
-A counting app for a ~2–3-year-old, built to actually teach counting (rote
-counting → one-to-one correspondence → cardinality) and to be tested with a
-real toddler before anything else gets added. See `spec.md` for the full
-build spec and `ocean-counting-build-brief.md` for the art/motion direction.
+A counting app for toddlers (~ages 2–3), built to teach one-to-one
+correspondence and cardinality through tapping, with an ocean theme, spoken
+numbers, and tactile feedback. Designed to be genuinely educational and,
+equally, **safe by design**.
+
+See `spec.md` for the full build spec and `DESIGN-BRIEF.md` for the locked
+art/motion/architecture contracts this build follows.
+
+---
 
 ## Run it (web-first)
 
@@ -13,40 +18,158 @@ npm run web
 ```
 
 This starts the Expo dev server and opens the app in your browser
-(`react-native-web`). Use this to iterate quickly and test with your
-daughter on a laptop/tablet browser before touching native builds.
+(`react-native-web`). Use this to iterate quickly and test on a laptop or
+tablet browser before touching native builds.
 
 To try it as a native app via Expo Go, run `npm start` and scan the QR code.
 
-## What's built (v1)
+---
 
-- One counting activity, five rounds per session (1 fish → 5 fish).
-- Tap-order counting: each fish gets its spoken number the moment it's
-  tapped; counted fish stay glowing; re-tapping a counted fish just replays
-  its number (no wrong answers, ever).
-- Every round ends with the total restated aloud ("Three fish!"), a real-world
-  bridge prompt ("Now count your fingers!"), and a co-play line for the
-  grown-up ("Count out loud together!").
-- After 5 rounds, a gentle stopping point — no infinite loop.
-- Press-and-hold parent gate opens a placeholder settings screen.
-- Runs fully offline; works with airplane mode on.
+## Privacy & Safety by Design
 
-## Privacy by design
+This app is built for young children, so its most important architectural
+property is what it *doesn't* do: **it collects nothing and talks to no one.**
 
-This app collects nothing. No accounts, no network calls, no analytics SDKs,
-no microphone, no camera, no location, no device identifiers. The only thing
-stored is `highestCountReached` — a single integer, saved locally on the
-device via AsyncStorage, never transmitted anywhere.
+- **No data collection.** No accounts, no names, no photos, no voice recording,
+  no location, no device identifiers. The only thing persisted is a single
+  integer (the highest count reached), stored locally on the device.
+- **No network calls.** The app makes zero outbound requests at runtime. It runs
+  fully in airplane mode. There is no telemetry, no analytics SDK, and no
+  third-party service that receives any signal about the child or the session.
+- **No third-party data SDKs.** Nothing in the dependency tree phones home.
+- **COPPA-clean by construction.** Because the app collects no personal
+  information from anyone, it falls outside the data-collection obligations of
+  the COPPA Rule entirely — there is nothing to consent to, nothing to disclose,
+  and nothing to delete. Compliance here is a property of the architecture, not
+  a policy bolted on afterward.
 
-Because it collects zero personal information, there's nothing to leak and
-nothing that needs consent — this is the intentional design, not an
-afterthought, and it's why the app can stay COPPA-clean without a privacy
-policy full of caveats.
+### Case study: closing a hidden network call in the animation engine
 
-## Tech
+The single celebration animation is rendered with Lottie. On the web target,
+`lottie-react-native` delegates to a WASM-based engine
+(`@lottiefiles/dotlottie-react`) that, by default, **fetches its `.wasm` binary
+from a public CDN (jsDelivr/unpkg) on first render.**
 
-Expo SDK 54, TypeScript, React Native. `expo-audio` / `expo-speech` /
-`expo-haptics` for feedback, `expo-linear-gradient` + `react-native-svg`
-compatible sprites for the ocean scene, `@react-native-async-storage/async-storage`
-for the one persisted value. See `hooks/README.md` and `constants/README.md`
-for the internal contracts.
+That default silently violates the app's core guarantee — a child's device
+would have made a UI-triggered request to a third-party CDN. It was caught by
+auditing actual network traffic on the rebuilt bundle rather than trusting the
+library's defaults.
+
+The fix preserves the no-network guarantee end to end:
+
+- **Vendored the `.wasm` binary** into `assets/lottie/` so it ships with the app.
+- **Registered `wasm` as a Metro asset extension** (`metro.config.js`) so the
+  bundler treats it as a local asset.
+- **Pinned the engine to the locally-resolved asset** via `setWasmUrl()` before
+  any Lottie renders (`components/lottieWasmSetup.web.ts`), with a **native
+  no-op counterpart** (`components/lottieWasmSetup.ts`) — native platforms use
+  the OS Lottie engines and never need the WASM path at all.
+
+Verification: on the rebuilt web bundle, there are zero external network
+requests; the only `.wasm` request resolves to localhost. The airplane-mode
+guarantee holds on the web path as well as native.
+
+> Takeaway: a third-party rendering engine tried to introduce a CDN dependency
+> that would have broken the app's privacy contract. Tracing its runtime network
+> behavior and closing it off — rather than accepting library defaults — is what
+> keeps "collects nothing, runs offline" true under real dependencies.
+
+---
+
+## Educational design
+
+The counting mechanic is grounded in early-numeracy research (Gelman &
+Gallistel's counting principles) rather than surface "edutainment":
+
+- **One-to-one correspondence:** each object is tapped once and assigned exactly
+  one number, in *tap order* (not array position), so the count reflects what
+  the child actually did.
+- **Cardinality:** every round restates the total aloud ("Three fish!"), which
+  is the specific instructional move that builds the last-number-is-the-total
+  concept.
+- **No fail state:** no timers, no wrong answers, no penalty sounds — young
+  children learn by exploring without fear of failure.
+- **Real-world bridge & co-play:** the app invites counting real objects and
+  counting aloud together, the modes with the strongest learning evidence.
+- **Healthy limits:** rounds reach a natural stopping point rather than looping
+  to maximize screen time.
+
+---
+
+## Architecture
+
+Logic and presentation are separated so the counting rules are pure and
+testable, and the UI is composed from small components.
+
+```
+/components
+  OceanBackground        gradient + sand + rising bubbles + seaweed
+  Fish                   one tappable fish: idle bob + spring tap + number bubble
+  CountBubble             the number-in-a-bubble shown when counted
+  CelebrationOverlay      full-screen Lottie + total; replaces the scene
+  ParentGate              press-and-hold gate -> settings
+  SettingsScreen          placeholder grown-up settings screen
+  lottieWasmSetup.web      pins the Lottie WASM engine to a local asset (web only)
+  lottieWasmSetup          no-op on native (native uses platform Lottie engines)
+/hooks
+  useCounting             round state + tap-order counting + cardinality (pure, tested)
+  useSound                wraps expo-audio + expo-speech + expo-haptics
+/constants
+  theme                   palette tokens, spacing scale, type scale, withOpacity()
+App.tsx                   composition only
+```
+
+- **`useCounting`** holds all counting logic and is covered by unit tests. Side
+  effects (sound, haptics, persistence) live outside React state updaters so
+  Strict Mode / the New Architecture cannot double-count.
+- **Design tokens only.** Every color comes from `constants/theme.ts`; no color
+  is hardcoded in a component. A `withOpacity(hex, opacity)` helper covers
+  translucent cases (e.g. modal backdrops) so even those reference the palette.
+
+---
+
+## Tech stack
+
+Expo SDK 54, React Native, TypeScript.
+
+| Concern | Library |
+|---|---|
+| Audio playback (SFX) | `expo-audio` (migrated off the deprecated `expo-av`) |
+| Spoken numbers | `expo-speech` |
+| Animation | `react-native-reanimated` (+ `react-native-worklets`, required on SDK 54) |
+| Celebration | `lottie-react-native` (single, self-authored animation) |
+| Haptics | `expo-haptics` |
+| Water gradient | `expo-linear-gradient` |
+| Typography | `@expo-google-fonts/fredoka` (single font family) |
+| Local persistence | `@react-native-async-storage/async-storage` (one integer) |
+
+`react-native-svg` is installed per the design brief's locked stack list but
+isn't currently wired into a component — the ocean scene (bubbles, seaweed,
+sand) uses CC0 sprite assets instead of hand-drawn vector shapes.
+
+**Locked design contracts:** fixed color palette (tokens only), Fredoka as the
+sole font, Reanimated springs for taps, exactly one Lottie for the celebration,
+zero network calls, and pure/tested counting logic. See `DESIGN-BRIEF.md`.
+
+---
+
+## Testing & verification
+
+- `npx tsc --noEmit` — type-clean.
+- `npm test` — counting-logic unit tests (`hooks/useCounting.test.ts`).
+- `npx expo-doctor` — dependency/SDK validation.
+- Network audit on the rebuilt web bundle (Playwright) — confirms zero
+  external requests at runtime, including the Lottie WASM asset.
+- On-device (Expo Go): confirms taps count in tap order, the **native**
+  celebration renders, and the app runs in **airplane mode** (confirms no
+  runtime network on native, not just web).
+
+---
+
+## Roadmap
+
+v1 (this): one polished counting activity, ocean-themed, evidence-based, offline.
+v2 (deferred by design): age levels mapped to the developmental ladder (rote →
+one-to-one → cardinality → subitizing), additional subjects, and a
+parent-gated subscription. Not built until the single activity is validated with
+real users.
