@@ -8,12 +8,14 @@ import useCounting from './hooks/useCounting';
 import useSound from './hooks/useSound';
 import OceanBackground from './components/OceanBackground';
 import Fish from './components/Fish';
+import Shape from './components/Shape';
 import CelebrationOverlay from './components/CelebrationOverlay';
 import SessionComplete from './components/SessionComplete';
 import ParentGate from './components/ParentGate';
 import SettingsScreen from './components/SettingsScreen';
 import THEME from './constants/theme';
-import { bridgePromptForRound, COPLAY_HINT, NOUN } from './constants/content';
+import { bridgePromptForRound, COPLAY_HINT } from './constants/content';
+import { nounForCount } from './constants/subjects';
 
 function Game() {
   const {
@@ -26,6 +28,9 @@ function Game() {
     level,
     levelId,
     setLevel,
+    subject,
+    subjectId,
+    setSubject,
     tapItem,
     nextRound,
     restartSession,
@@ -44,15 +49,15 @@ function Game() {
       if (level.emphasizeCardinality) {
         // Cardinality-emphasis levels ask the question before answering it,
         // leaning harder into "the last number counted is the total".
-        sound.speak('How many fish are there?');
-        const askThenAnswer = setTimeout(() => sound.playTotal(round, NOUN), 1300);
+        sound.speak(`How many ${subject.nounPlural} are there?`);
+        const askThenAnswer = setTimeout(() => sound.playTotal(round, nounForCount(subject, round)), 1300);
         const t = setTimeout(() => sound.speak(bridgePromptForRound(round)), 1300 + 1700);
         return () => {
           clearTimeout(askThenAnswer);
           clearTimeout(t);
         };
       }
-      sound.playTotal(round, NOUN);
+      sound.playTotal(round, nounForCount(subject, round));
       const t = setTimeout(() => sound.speak(bridgePromptForRound(round)), 1600);
       return () => clearTimeout(t);
     }
@@ -61,7 +66,7 @@ function Game() {
     }
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, round, level.emphasizeCardinality]);
+  }, [phase, round, level.emphasizeCardinality, subjectId]);
 
   if (!fontsLoaded) return null;
 
@@ -78,6 +83,7 @@ function Game() {
         <StatusBar style="light" />
         <CelebrationOverlay
           total={round}
+          noun={nounForCount(subject, round)}
           bridgePrompt={bridgePromptForRound(round)}
           isLastRound={round >= roundsPerSession}
           onNext={nextRound}
@@ -95,13 +101,15 @@ function Game() {
     );
   }
 
+  const CountableObject = subject.id === 'shapes' ? Shape : Fish;
+
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <StatusBar style="dark" />
 
       <View style={styles.topBand}>
         <View style={styles.topBandLeft}>
-          <Text style={styles.title}>Count the fish!</Text>
+          <Text style={styles.title}>{subject.title}</Text>
           <Text style={styles.roundLabel}>Round {round} of {roundsPerSession}</Text>
         </View>
         <View style={styles.topBandRight}>
@@ -114,15 +122,15 @@ function Game() {
 
       <View style={styles.scene}>
         <OceanBackground />
-        <View style={styles.fishRow}>
+        <View style={styles.objectRow}>
           {items.map((it, i) => (
-            <Fish key={it.id} index={i} counted={it.counted} order={it.order} onPress={() => handleTap(i)} />
+            <CountableObject key={it.id} index={i} counted={it.counted} order={it.order} onPress={() => handleTap(i)} />
           ))}
         </View>
       </View>
 
       <View style={styles.bottomBand}>
-        <Text style={styles.prompt}>Tap each fish once to count it</Text>
+        <Text style={styles.prompt}>{subject.prompt}</Text>
         <Text style={styles.coplay}>{COPLAY_HINT}</Text>
       </View>
 
@@ -131,6 +139,8 @@ function Game() {
         highestCountReached={highestCountReached}
         levelId={levelId}
         onSelectLevel={setLevel}
+        subjectId={subjectId}
+        onSelectSubject={setSubject}
         onClose={() => setSettingsVisible(false)}
       />
     </SafeAreaView>
@@ -170,7 +180,7 @@ const styles = StyleSheet.create({
   },
   countBadgeText: { fontSize: 22, fontFamily: THEME.TYPE.fontFamilyBold, color: THEME.COLORS.deepWater },
   scene: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  fishRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', paddingHorizontal: THEME.SPACING.l, zIndex: 1 },
+  objectRow: { flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', alignItems: 'center', paddingHorizontal: THEME.SPACING.l, zIndex: 1 },
   bottomBand: {
     minHeight: 84,
     padding: THEME.SPACING.l,

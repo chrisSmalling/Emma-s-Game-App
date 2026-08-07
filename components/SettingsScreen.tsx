@@ -2,17 +2,29 @@ import React from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import THEME from '../constants/theme';
 import { LevelId } from '../constants/levels';
+import { SubjectId } from '../constants/subjects';
 import LevelPicker from './LevelPicker';
+import SubjectPicker from './SubjectPicker';
 
 type Props = {
   visible: boolean;
   highestCountReached: number;
   levelId: LevelId;
   onSelectLevel: (id: LevelId) => void;
+  subjectId: SubjectId;
+  onSelectSubject: (id: SubjectId) => void;
   onClose: () => void;
 };
 
-export default function SettingsScreen({ visible, highestCountReached, levelId, onSelectLevel, onClose }: Props) {
+export default function SettingsScreen({
+  visible,
+  highestCountReached,
+  levelId,
+  onSelectLevel,
+  subjectId,
+  onSelectSubject,
+  onClose,
+}: Props) {
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
       <View style={styles.backdrop}>
@@ -21,14 +33,16 @@ export default function SettingsScreen({ visible, highestCountReached, levelId, 
             <Text style={styles.title}>Grown-up Settings</Text>
             <Text style={styles.body}>Highest count reached: {highestCountReached || '—'}</Text>
 
+            <SubjectPicker currentSubjectId={subjectId} onSelect={onSelectSubject} />
+            <View style={styles.spacer} />
             <LevelPicker currentLevelId={levelId} onSelect={onSelectLevel} />
 
             <Text style={styles.note}>
               This app collects nothing — no accounts, no network calls, no analytics,
-              no microphone. The only things saved are the highest count reached and the
-              chosen level, stored on this device only.
+              no microphone. The only things saved are the highest count reached, the
+              chosen subject, and the chosen level, all stored on this device only.
             </Text>
-            <Text style={styles.comingSoon}>More settings (themes, subjects) are coming in a future update.</Text>
+            <Text style={styles.comingSoon}>More settings (themes) are coming in a future update.</Text>
           </ScrollView>
           <Pressable onPress={onClose} style={styles.closeButton} accessibilityRole="button">
             <Text style={styles.closeText}>Close</Text>
@@ -44,6 +58,7 @@ const styles = StyleSheet.create({
   card: { backgroundColor: '#fff', borderRadius: 20, padding: 24, width: '100%', maxWidth: 420, maxHeight: '85%' },
   title: { fontSize: THEME.TYPE.title, fontFamily: THEME.TYPE.fontFamilyBold, marginBottom: 16, color: THEME.COLORS.deepWater },
   body: { fontSize: THEME.TYPE.body, fontFamily: THEME.TYPE.fontFamily, marginBottom: 16 },
+  spacer: { height: THEME.SPACING.l },
   note: { fontSize: THEME.TYPE.small, fontFamily: THEME.TYPE.fontFamily, color: '#555', lineHeight: 20, marginTop: 4, marginBottom: 12 },
   comingSoon: { fontSize: THEME.TYPE.small, fontFamily: THEME.TYPE.fontFamily, color: '#888', marginBottom: 4 },
   closeButton: { backgroundColor: THEME.COLORS.accent, paddingVertical: 12, borderRadius: 12, alignItems: 'center', marginTop: 16 },

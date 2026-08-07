@@ -104,21 +104,27 @@ testable, and the UI is composed from small components.
 
 ```
 /components
-  OceanBackground        gradient + sand + rising bubbles + seaweed
-  Fish                   one tappable fish: idle bob + spring tap + number bubble
+  OceanBackground         gradient + sand + rising bubbles + seaweed
+  TappableObject          shared idle-bob + spring-tap + counted-glow + number-bubble
+  Fish                    ocean subject's visual: a thin TappableObject wrapper
+  Shape                   shapes subject's visual: another thin TappableObject wrapper
+  ShapeGraphic            circle/square/triangle/star, drawn with react-native-svg
   CountBubble             the number-in-a-bubble shown when counted
   CelebrationOverlay      full-screen Lottie + total; replaces the scene
   ParentGate              press-and-hold gate -> settings
-  SettingsScreen          grown-up settings: best score + level picker
-  LevelPicker             the four counting-level rows shown in Settings
+  SettingsScreen          grown-up settings: best score + subject/level pickers
+  OptionPicker            generic row-list picker (used by both pickers below)
+  SubjectPicker           the counting-subject rows shown in Settings
+  LevelPicker             the counting-level rows shown in Settings
   lottieWasmSetup.web      pins the Lottie WASM engine to a local asset (web only)
   lottieWasmSetup          no-op on native (native uses platform Lottie engines)
 /hooks
-  useCounting             round/level state + tap-order counting + cardinality (pure, tested)
+  useCounting             round/level/subject state + tap-order counting (pure, tested)
   useSound                wraps expo-audio + expo-speech + expo-haptics
 /constants
   theme                   palette tokens, spacing scale, type scale, withOpacity()
   levels                  the four-level developmental scaffold (see Roadmap)
+  subjects                the counting subjects (ocean fish, shapes; see Roadmap)
 App.tsx                   composition only
 ```
 
@@ -128,6 +134,11 @@ App.tsx                   composition only
 - **Design tokens only.** Every color comes from `constants/theme.ts`; no color
   is hardcoded in a component. A `withOpacity(hex, opacity)` helper covers
   translucent cases (e.g. modal backdrops) so even those reference the palette.
+- **Subjects are thin visual wrappers.** `TappableObject` owns all the shared
+  tap/motion/counted-state behavior; `Fish` and `Shape` each just supply what
+  goes inside it (an `Image` or an SVG shape). Adding a future subject means
+  writing one small wrapper component and a `constants/subjects.ts` entry —
+  the counting engine, motion, and sound don't change.
 
 ---
 
@@ -146,9 +157,9 @@ Expo SDK 54, React Native, TypeScript.
 | Typography | `@expo-google-fonts/fredoka` (single font family) |
 | Local persistence | `@react-native-async-storage/async-storage` (one integer) |
 
-`react-native-svg` is installed per the design brief's locked stack list but
-isn't currently wired into a component — the ocean scene (bubbles, seaweed,
-sand) uses CC0 sprite assets instead of hand-drawn vector shapes.
+`react-native-svg` draws the Shapes subject's circle/square/triangle/star
+(`components/ShapeGraphic.tsx`). The ocean scene itself (bubbles, seaweed,
+sand) still uses CC0 sprite assets rather than hand-drawn vectors.
 
 **Locked design contracts:** fixed color palette (tokens only), Fredoka as the
 sole font, Reanimated springs for taps, exactly one Lottie for the celebration,
@@ -173,24 +184,35 @@ zero network calls, and pure/tested counting logic. See `DESIGN-BRIEF.md`.
 
 v1: one polished counting activity, ocean-themed, evidence-based, offline.
 
-v2 seed (this): a difficulty scaffold behind the parent gate, mapped onto the
-developmental ladder (`constants/levels.ts`):
+v2 (in progress), both behind the parent gate in Settings and both persisted
+locally the same way the high score is:
+
+**Difficulty levels** (`constants/levels.ts`), mapped onto the developmental
+ladder:
 
 - **Rote Counting** (ages ~2) — rounds 1 to 3.
 - **One-to-One** (ages ~3) — rounds 1 to 5. Default, and identical to v1's
   original behavior.
 - **Cardinality** (ages 2–4) — rounds 1 to 5, and the round-complete moment
-  asks "How many fish are there?" before answering, leaning harder into the
-  last-number-is-the-total concept.
+  asks "How many [fish/shapes] are there?" before answering, leaning harder
+  into the last-number-is-the-total concept.
 - **Subitizing** (ages ~4–5) — listed and selectable-looking in the picker,
   but marked "coming soon" and disabled. Instantly recognizing a small set
   *without* counting it is a genuinely different interaction model (flash,
   hide, ask — no objects to tap), not a variant of the existing loop, so it
   isn't playable yet. Picking it is a no-op.
 
-Selecting a level persists it locally (same mechanism as the high score) and
-restarts the session cleanly at round 1 in the new range.
+**Counting subjects** (`constants/subjects.ts`), reusing the same tap-order
+engine with different objects:
 
-v2 (still deferred): the subitizing minigame itself, additional subjects, and
-a parent-gated subscription. Not built until the levels above are validated
-with real users.
+- **Ocean Fish** — the original. Default.
+- **Shapes** — circles, squares, triangles, stars, drawn with
+  `react-native-svg` in the locked palette colors, cycling the same way the
+  fish colors do.
+
+Switching level or subject restarts the session cleanly at round 1 (a swap
+mid-round would leave a stale item count or counted-state from the old one).
+
+v2 (still deferred): the subitizing minigame itself, more subjects (colors,
+letters), and a parent-gated subscription. Not built until what's here is
+validated with real users.

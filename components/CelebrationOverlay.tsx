@@ -8,14 +8,16 @@ const CELEBRATION_LOTTIE = require('../assets/lottie/celebration.json');
 
 type Props = {
   total: number;
+  noun: string;
   bridgePrompt: string;
   isLastRound: boolean;
   onNext: () => void;
 };
 
 // Full-screen overlay that REPLACES the play scene — never draws over the
-// fish. The one water-themed Lottie plays once, only here, at round complete.
-export default function CelebrationOverlay({ total, bridgePrompt, isLastRound, onNext }: Props) {
+// countable objects. The one water-themed Lottie plays once, only here, at
+// round complete.
+export default function CelebrationOverlay({ total, noun, bridgePrompt, isLastRound, onNext }: Props) {
   return (
     <View style={styles.container}>
       <LottieView
@@ -28,7 +30,7 @@ export default function CelebrationOverlay({ total, bridgePrompt, isLastRound, o
       <View style={styles.centerBubble}>
         <Text style={styles.bigNumber}>{total}</Text>
       </View>
-      <Text style={styles.message}>{total} fish! Great counting!</Text>
+      <Text style={styles.message}>{total} {noun}! Great counting!</Text>
       <Text style={styles.together}>Say it out loud together!</Text>
       <View style={styles.promptCard}>
         <Text style={styles.promptText}>{bridgePrompt}</Text>

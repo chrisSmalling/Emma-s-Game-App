@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { DEFAULT_LEVEL_ID, getLevel, LEVELS, LevelConfig, LevelId } from '../constants/levels';
+import { DEFAULT_SUBJECT_ID, getSubject, SUBJECTS, SubjectConfig, SubjectId } from '../constants/subjects';
 
 export type CountingItem = {
   id: number;
@@ -12,9 +13,14 @@ export type Phase = 'playing' | 'roundComplete' | 'sessionComplete';
 
 const STORAGE_KEY_HIGHEST = 'littleCounter.highestCountReached';
 const STORAGE_KEY_LEVEL = 'littleCounter.levelId';
+const STORAGE_KEY_SUBJECT = 'littleCounter.subjectId';
 
 function isLevelId(value: string): value is LevelId {
   return LEVELS.some(l => l.id === value);
+}
+
+function isSubjectId(value: string): value is SubjectId {
+  return SUBJECTS.some(s => s.id === value);
 }
 
 function makeItems(n: number): CountingItem[] {
@@ -26,6 +32,9 @@ export type TapResult = { assignedOrder: number | null; isNew: boolean };
 export default function useCounting() {
   const [levelId, setLevelIdState] = useState<LevelId>(DEFAULT_LEVEL_ID);
   const level: LevelConfig = getLevel(levelId);
+
+  const [subjectId, setSubjectIdState] = useState<SubjectId>(DEFAULT_SUBJECT_ID);
+  const subject: SubjectConfig = getSubject(subjectId);
 
   const [round, setRound] = useState(1);
   const [items, setItems] = useState<CountingItem[]>(() => makeItems(1));
@@ -56,6 +65,16 @@ export default function useCounting() {
       .catch(() => {
         // no persisted level yet — default stands
       });
+
+    AsyncStorage.getItem(STORAGE_KEY_SUBJECT)
+      .then(value => {
+        if (value && isSubjectId(value)) {
+          setSubjectIdState(value);
+        }
+      })
+      .catch(() => {
+        // no persisted subject yet — default stands
+      });
   }, []);
 
   const persistHighest = useCallback((n: number) => {
@@ -63,6 +82,16 @@ export default function useCounting() {
     highestRef.current = n;
     setHighestCountReached(n);
     AsyncStorage.setItem(STORAGE_KEY_HIGHEST, String(n)).catch(() => {});
+  }, []);
+
+  // A level or subject change swaps what's being played out from under any
+  // in-progress round, so start the new session cleanly rather than leave a
+  // stale one (mismatched item count, or counted objects from the old subject).
+  const resetToRoundOne = useCallback(() => {
+    setRound(1);
+    setItems(makeItems(1));
+    setCountedCount(0);
+    setPhase('playing');
   }, []);
 
   // Pure counting logic: tap order (not array index) assigns each object its
@@ -103,24 +132,30 @@ export default function useCounting() {
   }, [round, level.maxCount]);
 
   const restartSession = useCallback(() => {
-    setRound(1);
-    setItems(makeItems(1));
-    setCountedCount(0);
-    setPhase('playing');
-  }, []);
+    resetToRoundOne();
+  }, [resetToRoundOne]);
 
-  const setLevel = useCallback((id: LevelId) => {
-    const chosen = getLevel(id);
-    if (chosen.comingSoon) return; // not playable yet — see constants/levels.ts
-    setLevelIdState(id);
-    AsyncStorage.setItem(STORAGE_KEY_LEVEL, id).catch(() => {});
-    // A level change swaps the round range out from under any in-progress
-    // round, so start the new session cleanly rather than leave a stale one.
-    setRound(1);
-    setItems(makeItems(1));
-    setCountedCount(0);
-    setPhase('playing');
-  }, []);
+  const setLevel = useCallback(
+    (id: LevelId) => {
+      const chosen = getLevel(id);
+      if (chosen.comingSoon) return; // not playable yet — see constants/levels.ts
+      setLevelIdState(id);
+      AsyncStorage.setItem(STORAGE_KEY_LEVEL, id).catch(() => {});
+      resetToRoundOne();
+    },
+    [resetToRoundOne]
+  );
+
+  const setSubject = useCallback(
+    (id: SubjectId) => {
+      const chosen = getSubject(id);
+      if (chosen.comingSoon) return; // not playable yet — see constants/subjects.ts
+      setSubjectIdState(id);
+      AsyncStorage.setItem(STORAGE_KEY_SUBJECT, id).catch(() => {});
+      resetToRoundOne();
+    },
+    [resetToRoundOne]
+  );
 
   return {
     round,
@@ -132,6 +167,9 @@ export default function useCounting() {
     level,
     levelId,
     setLevel,
+    subject,
+    subjectId,
+    setSubject,
     tapItem,
     nextRound,
     restartSession,

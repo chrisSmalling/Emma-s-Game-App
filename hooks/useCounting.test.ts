@@ -148,4 +148,36 @@ describe('useCounting', () => {
     await act(() => result.current.setLevel('subitizing'));
     expect(result.current.levelId).toBe('oneToOne'); // unchanged
   });
+
+  it('defaults to the ocean subject', async () => {
+    const { result } = await renderHook(() => useCounting());
+    expect(result.current.subjectId).toBe('ocean');
+    expect(result.current.subject.noun).toBe('fish');
+  });
+
+  it('switching subject updates the noun and restarts the session', async () => {
+    const { result } = await renderHook(() => useCounting());
+    await act(() => result.current.nextRound()); // round 2, two items
+    await act(() => {
+      result.current.tapItem(0);
+    });
+    expect(result.current.countedCount).toBe(1);
+
+    await act(() => result.current.setSubject('shapes'));
+
+    expect(result.current.subjectId).toBe('shapes');
+    expect(result.current.subject.noun).toBe('shape');
+    expect(result.current.round).toBe(1);
+    expect(result.current.countedCount).toBe(0);
+    expect(result.current.phase).toBe('playing');
+  });
+
+  it('switching subject does not change the selected level', async () => {
+    const { result } = await renderHook(() => useCounting());
+    await act(() => result.current.setLevel('rote'));
+    await act(() => result.current.setSubject('shapes'));
+
+    expect(result.current.levelId).toBe('rote');
+    expect(result.current.roundsPerSession).toBe(3);
+  });
 });

@@ -15,5 +15,3 @@ export function bridgePromptForRound(round: number): string {
 
 // Co-play hook: addresses the grown-up, not the child, to invite them in.
 export const COPLAY_HINT = 'Grown-up: count out loud together!';
-
-export const NOUN = 'fish';
