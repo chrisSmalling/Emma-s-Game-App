@@ -1,11 +1,12 @@
 // Real-world bridge prompts: every round closes by pointing counting back at
 // real objects near the child, per the spec's "bridge to the real world" rule.
+// Kept to things a child can always act on right where they are — no prompt
+// assumes a specific object or place they may not have.
 export const BRIDGE_PROMPTS = [
   'Now count your fingers!',
-  'How many toes do you have?',
-  'Can you count your toys?',
-  'How many buttons on your shirt?',
-  'Count the stairs with me!',
+  'Can you count your toes?',
+  'Count them again with me!',
+  'How many can you find in the room?',
 ];
 
 export function bridgePromptForRound(round: number): string {
