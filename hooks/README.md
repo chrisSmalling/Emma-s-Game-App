@@ -6,7 +6,11 @@
   AsyncStorage. No side effects run inside a `setState` updater; storage
   writes and sound happen in event-handler code, not updater callbacks.
   Changing level or subject mid-round discards the in-progress round and
-  restarts cleanly at round 1.
+  restarts cleanly at round 1. `Phase` includes a `'peeking'` value: any
+  level with `LevelConfig.peek` set (currently just Subitizing) starts each
+  round there instead of `'playing'` — `tapItem` is a no-op while peeking,
+  and the exposed `endPeek()` action (called by App.tsx after a fixed delay)
+  reveals the round for normal tap-to-count play.
 - `useSound.ts` — wraps `expo-audio` (bundled pop/chime SFX), `expo-speech`
   (spoken numbers, cardinality restate, bridge prompts), and `expo-haptics`
   (light tap feedback). Works unchanged on native and web — all three Expo

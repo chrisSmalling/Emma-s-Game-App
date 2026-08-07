@@ -143,10 +143,57 @@ describe('useCounting', () => {
     expect(result.current.level.emphasizeCardinality).toBe(true);
   });
 
-  it('refuses to switch to a level marked comingSoon', async () => {
+  it('switching to the subitizing level starts each round peeking, not tappable', async () => {
     const { result } = await renderHook(() => useCounting());
     await act(() => result.current.setLevel('subitizing'));
-    expect(result.current.levelId).toBe('oneToOne'); // unchanged
+
+    expect(result.current.levelId).toBe('subitizing');
+    expect(result.current.phase).toBe('peeking');
+
+    // Tapping during the peek does nothing — it's not counting yet.
+    let tapResult!: ReturnType<typeof result.current.tapItem>;
+    await act(() => {
+      tapResult = result.current.tapItem(0);
+    });
+    expect(tapResult).toBeNull();
+    expect(result.current.items[0].counted).toBe(false);
+    expect(result.current.phase).toBe('peeking');
+  });
+
+  it('endPeek reveals the round for normal tap-to-count play', async () => {
+    const { result } = await renderHook(() => useCounting());
+    await act(() => result.current.setLevel('subitizing'));
+    expect(result.current.phase).toBe('peeking');
+
+    await act(() => result.current.endPeek());
+    expect(result.current.phase).toBe('playing');
+
+    let tapResult!: ReturnType<typeof result.current.tapItem>;
+    await act(() => {
+      tapResult = result.current.tapItem(0);
+    });
+    expect(tapResult).toEqual({ assignedOrder: 1, isNew: true });
+  });
+
+  it('endPeek is a no-op outside the peeking phase', async () => {
+    const { result } = await renderHook(() => useCounting());
+    expect(result.current.phase).toBe('playing'); // default level never peeks
+    await act(() => result.current.endPeek());
+    expect(result.current.phase).toBe('playing');
+  });
+
+  it('nextRound under subitizing starts the next round peeking too', async () => {
+    const { result } = await renderHook(() => useCounting());
+    await act(() => result.current.setLevel('subitizing'));
+    await act(() => result.current.endPeek());
+    await act(() => {
+      result.current.tapItem(0); // completes round 1 (one item)
+    });
+    expect(result.current.phase).toBe('roundComplete');
+
+    await act(() => result.current.nextRound());
+    expect(result.current.round).toBe(2);
+    expect(result.current.phase).toBe('peeking');
   });
 
   it('defaults to the ocean subject', async () => {

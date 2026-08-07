@@ -9,7 +9,10 @@ export type CountingItem = {
   order: number | null;
 };
 
-export type Phase = 'playing' | 'roundComplete' | 'sessionComplete';
+// 'peeking' is the subitizing level's brief, non-interactive look at the
+// whole set before it becomes a normal tap-to-count round (see
+// constants/levels.ts LevelConfig.peek). Every other level skips it.
+export type Phase = 'peeking' | 'playing' | 'roundComplete' | 'sessionComplete';
 
 const STORAGE_KEY_HIGHEST = 'littleCounter.highestCountReached';
 const STORAGE_KEY_LEVEL = 'littleCounter.levelId';
@@ -27,6 +30,10 @@ function makeItems(n: number): CountingItem[] {
   return Array.from({ length: n }, (_, i) => ({ id: i, counted: false, order: null }));
 }
 
+function startingPhase(lvl: LevelConfig): Phase {
+  return lvl.peek ? 'peeking' : 'playing';
+}
+
 export type TapResult = { assignedOrder: number | null; isNew: boolean };
 
 export default function useCounting() {
@@ -39,7 +46,7 @@ export default function useCounting() {
   const [round, setRound] = useState(1);
   const [items, setItems] = useState<CountingItem[]>(() => makeItems(1));
   const [countedCount, setCountedCount] = useState(0);
-  const [phase, setPhase] = useState<Phase>('playing');
+  const [phase, setPhase] = useState<Phase>(() => startingPhase(getLevel(DEFAULT_LEVEL_ID)));
   const [highestCountReached, setHighestCountReached] = useState(0);
   const highestRef = useRef(0);
 
@@ -60,6 +67,7 @@ export default function useCounting() {
       .then(value => {
         if (value && isLevelId(value)) {
           setLevelIdState(value);
+          setPhase(startingPhase(getLevel(value)));
         }
       })
       .catch(() => {
@@ -87,17 +95,21 @@ export default function useCounting() {
   // A level or subject change swaps what's being played out from under any
   // in-progress round, so start the new session cleanly rather than leave a
   // stale one (mismatched item count, or counted objects from the old subject).
-  const resetToRoundOne = useCallback(() => {
+  // Takes the target level explicitly rather than closing over the current
+  // one, since callers (setLevel) know the new level before this render's
+  // `level` variable reflects it.
+  const resetToRoundOne = useCallback((forLevel: LevelConfig) => {
     setRound(1);
     setItems(makeItems(1));
     setCountedCount(0);
-    setPhase('playing');
+    setPhase(startingPhase(forLevel));
   }, []);
 
   // Pure counting logic: tap order (not array index) assigns each object its
   // number, re-taps just replay it. No side effects run inside the updater.
   const tapItem = useCallback(
     (index: number): TapResult | null => {
+      if (phase !== 'playing') return null; // peeking objects aren't tappable yet
       const it = items[index];
       if (!it) return null;
 
@@ -116,8 +128,15 @@ export default function useCounting() {
 
       return { assignedOrder, isNew: true };
     },
-    [items, countedCount, round, persistHighest]
+    [phase, items, countedCount, round, persistHighest]
   );
+
+  // Ends the subitizing "peek" beat and reveals the round for normal
+  // tap-to-count play. A no-op if called outside 'peeking' (e.g. a stale
+  // timer firing after the level changed) so it can't clobber other phases.
+  const endPeek = useCallback(() => {
+    setPhase(prev => (prev === 'peeking' ? 'playing' : prev));
+  }, []);
 
   const nextRound = useCallback(() => {
     if (round >= level.maxCount) {
@@ -128,12 +147,12 @@ export default function useCounting() {
     setRound(next);
     setItems(makeItems(next));
     setCountedCount(0);
-    setPhase('playing');
-  }, [round, level.maxCount]);
+    setPhase(startingPhase(level));
+  }, [round, level]);
 
   const restartSession = useCallback(() => {
-    resetToRoundOne();
-  }, [resetToRoundOne]);
+    resetToRoundOne(level);
+  }, [level, resetToRoundOne]);
 
   const setLevel = useCallback(
     (id: LevelId) => {
@@ -141,7 +160,7 @@ export default function useCounting() {
       if (chosen.comingSoon) return; // not playable yet — see constants/levels.ts
       setLevelIdState(id);
       AsyncStorage.setItem(STORAGE_KEY_LEVEL, id).catch(() => {});
-      resetToRoundOne();
+      resetToRoundOne(chosen);
     },
     [resetToRoundOne]
   );
@@ -152,9 +171,9 @@ export default function useCounting() {
       if (chosen.comingSoon) return; // not playable yet — see constants/subjects.ts
       setSubjectIdState(id);
       AsyncStorage.setItem(STORAGE_KEY_SUBJECT, id).catch(() => {});
-      resetToRoundOne();
+      resetToRoundOne(level); // subject doesn't affect phase — current level still applies
     },
-    [resetToRoundOne]
+    [level, resetToRoundOne]
   );
 
   return {
@@ -171,6 +190,7 @@ export default function useCounting() {
     subjectId,
     setSubject,
     tapItem,
+    endPeek,
     nextRound,
     restartSession,
   } as const;

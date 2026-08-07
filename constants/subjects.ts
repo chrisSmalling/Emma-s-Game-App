@@ -1,7 +1,7 @@
 // v2: counting subjects beyond the original ocean fish, reusing the same
 // tap-order counting engine (hooks/useCounting.ts) with different objects.
 
-export type SubjectId = 'ocean' | 'shapes';
+export type SubjectId = 'ocean' | 'shapes' | 'colors' | 'letters';
 
 export type SubjectConfig = {
   id: SubjectId;
@@ -37,6 +37,24 @@ export const SUBJECTS: SubjectConfig[] = [
     nounPlural: 'shapes',
     title: 'Count the shapes!',
     prompt: 'Tap each shape once to count it',
+  },
+  {
+    id: 'colors',
+    label: 'Colors',
+    description: 'Bright solid-color circles.',
+    noun: 'color',
+    nounPlural: 'colors',
+    title: 'Count the colors!',
+    prompt: 'Tap each color once to count it',
+  },
+  {
+    id: 'letters',
+    label: 'Letters',
+    description: 'Big bold letters — A through E.',
+    noun: 'letter',
+    nounPlural: 'letters',
+    title: 'Count the letters!',
+    prompt: 'Tap each letter once to count it',
   },
 ];
 

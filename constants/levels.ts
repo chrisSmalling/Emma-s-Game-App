@@ -1,6 +1,5 @@
-// v2 seed: a difficulty scaffold mapping onto the developmental counting
-// ladder from spec.md §4 (Gelman & Gallistel's counting principles). Only
-// the data model + a picker are built here — see LevelConfig.comingSoon.
+// v2: a difficulty scaffold mapping onto the developmental counting ladder
+// from spec.md §4 (Gelman & Gallistel's counting principles).
 
 export type LevelId = 'rote' | 'oneToOne' | 'cardinality' | 'subitizing';
 
@@ -14,10 +13,11 @@ export type LevelConfig = {
   // Level 3+: the round-complete moment asks "how many?" before answering,
   // instead of just stating the total — leans harder into cardinality.
   emphasizeCardinality: boolean;
-  // Subitizing (instantly recognizing small sets without counting) is a
-  // different interaction model from tap-to-count entirely — flashing a
-  // set briefly, then asking "how many?" with no objects to tap. Not a
-  // variation of the existing loop, so it isn't playable yet.
+  // Subitizing: each round opens with a brief, non-interactive "peek" at
+  // the whole set (encouraging an instant glance) before it becomes the
+  // normal tap-to-count round. No quiz, no right/wrong answer — spec.md's
+  // "no fail state" rule rules out a graded guess. See hooks/useCounting.ts.
+  peek?: boolean;
   comingSoon?: boolean;
 };
 
@@ -46,10 +46,10 @@ export const LEVELS: LevelConfig[] = [
   {
     id: 'subitizing',
     label: 'Subitizing',
-    description: 'Ages ~4–5. Instantly recognizing small sets without counting them. Coming in a future update.',
+    description: 'Ages ~4–5. A quick peek at the whole set first, then count together to check.',
     maxCount: 5,
     emphasizeCardinality: true,
-    comingSoon: true,
+    peek: true,
   },
 ];
 

@@ -106,8 +106,8 @@ testable, and the UI is composed from small components.
 /components
   OceanBackground         gradient + sand + rising bubbles + seaweed
   TappableObject          shared idle-bob + spring-tap + counted-glow + number-bubble
-  Fish                    ocean subject's visual: a thin TappableObject wrapper
-  Shape                   shapes subject's visual: another thin TappableObject wrapper
+  Fish / Shape /          each subject's visual: a thin TappableObject wrapper
+  ColorBlob / Letter
   ShapeGraphic            circle/square/triangle/star, drawn with react-native-svg
   CountBubble             the number-in-a-bubble shown when counted
   CelebrationOverlay      full-screen Lottie + total; replaces the scene
@@ -119,12 +119,12 @@ testable, and the UI is composed from small components.
   lottieWasmSetup.web      pins the Lottie WASM engine to a local asset (web only)
   lottieWasmSetup          no-op on native (native uses platform Lottie engines)
 /hooks
-  useCounting             round/level/subject state + tap-order counting (pure, tested)
+  useCounting             round/level/subject/peek state + tap-order counting (pure, tested)
   useSound                wraps expo-audio + expo-speech + expo-haptics
 /constants
   theme                   palette tokens, spacing scale, type scale, withOpacity()
   levels                  the four-level developmental scaffold (see Roadmap)
-  subjects                the counting subjects (ocean fish, shapes; see Roadmap)
+  subjects                the four counting subjects (see Roadmap)
 App.tsx                   composition only
 ```
 
@@ -135,10 +135,12 @@ App.tsx                   composition only
   is hardcoded in a component. A `withOpacity(hex, opacity)` helper covers
   translucent cases (e.g. modal backdrops) so even those reference the palette.
 - **Subjects are thin visual wrappers.** `TappableObject` owns all the shared
-  tap/motion/counted-state behavior; `Fish` and `Shape` each just supply what
-  goes inside it (an `Image` or an SVG shape). Adding a future subject means
-  writing one small wrapper component and a `constants/subjects.ts` entry —
-  the counting engine, motion, and sound don't change.
+  tap/motion/counted-state behavior; `Fish`, `Shape`, `ColorBlob`, and `Letter`
+  each just supply what goes inside it (an `Image`, an SVG shape, a colored
+  `View`, or a `Text` glyph) plus an `objectLabel` for accessibility. Adding a
+  future subject means writing one small wrapper component and a
+  `constants/subjects.ts` entry — the counting engine, motion, and sound
+  don't change.
 
 ---
 
@@ -184,8 +186,11 @@ zero network calls, and pure/tested counting logic. See `DESIGN-BRIEF.md`.
 
 v1: one polished counting activity, ocean-themed, evidence-based, offline.
 
-v2 (in progress), both behind the parent gate in Settings and both persisted
-locally the same way the high score is:
+v2: everything from spec.md §9's "out of scope for v1" list except the
+subscription. Both pickers below live behind the parent gate in Settings and
+both persist locally the same way the high score does; switching either
+restarts the session cleanly at round 1 (a swap mid-round would leave a
+stale item count or counted-state from the old one).
 
 **Difficulty levels** (`constants/levels.ts`), mapped onto the developmental
 ladder:
@@ -194,25 +199,34 @@ ladder:
 - **One-to-One** (ages ~3) — rounds 1 to 5. Default, and identical to v1's
   original behavior.
 - **Cardinality** (ages 2–4) — rounds 1 to 5, and the round-complete moment
-  asks "How many [fish/shapes] are there?" before answering, leaning harder
-  into the last-number-is-the-total concept.
-- **Subitizing** (ages ~4–5) — listed and selectable-looking in the picker,
-  but marked "coming soon" and disabled. Instantly recognizing a small set
-  *without* counting it is a genuinely different interaction model (flash,
-  hide, ask — no objects to tap), not a variant of the existing loop, so it
-  isn't playable yet. Picking it is a no-op.
+  asks "How many [fish/shapes/...] are there?" before answering, leaning
+  harder into the last-number-is-the-total concept.
+- **Subitizing** (ages ~4–5) — each round opens with a brief (1.6s),
+  non-interactive "peek" at the whole set — objects visible and idle-bobbing,
+  but not tappable, with a spoken "Look closely!" cue and no numbers said (that
+  would just be counting). It then becomes a normal tap-to-count round.
+  Deliberately *not* a flash-then-hide-then-guess quiz: spec.md's "no fail
+  state" rule rules out a graded right/wrong answer, so there's no wrong
+  answer to give — the peek is an invitation to glance, then the count
+  round is where you check together. `useCounting`'s `Phase` type gained a
+  `'peeking'` value for this; `TappableObject` gained an `interactive` prop
+  so peeking objects render but don't respond to taps.
 
 **Counting subjects** (`constants/subjects.ts`), reusing the same tap-order
-engine with different objects:
+engine with different objects — each is a `TappableObject` wrapper, see
+Architecture above:
 
 - **Ocean Fish** — the original. Default.
-- **Shapes** — circles, squares, triangles, stars, drawn with
-  `react-native-svg` in the locked palette colors, cycling the same way the
-  fish colors do.
+- **Shapes** — circle/square/triangle/star, drawn with `react-native-svg`.
+- **Colors** — solid-color circles, a distinct set of locked-palette swatches.
+- **Letters** — big bold A–E glyphs. Counts objects that happen to be
+  letters; doesn't teach letter sounds or names (out of scope — this is a
+  counting app, not a phonics one).
 
-Switching level or subject restarts the session cleanly at round 1 (a swap
-mid-round would leave a stale item count or counted-state from the old one).
-
-v2 (still deferred): the subitizing minigame itself, more subjects (colors,
-letters), and a parent-gated subscription. Not built until what's here is
-validated with real users.
+v2 (still not built — the one deliberately deferred item): a **parent-gated
+subscription**. This is a different kind of work than everything above: real
+in-app-purchase products configured in App Store Connect / Google Play
+Console, a purchase flow, entitlement gating, and platform-specific payment
+code that can't be meaningfully verified from a web sandbox the way
+everything else in this README was. Needs real device testing and store
+account access before it's built.

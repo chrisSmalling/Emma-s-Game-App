@@ -9,6 +9,8 @@ import useSound from './hooks/useSound';
 import OceanBackground from './components/OceanBackground';
 import Fish from './components/Fish';
 import Shape from './components/Shape';
+import ColorBlob from './components/ColorBlob';
+import Letter from './components/Letter';
 import CelebrationOverlay from './components/CelebrationOverlay';
 import SessionComplete from './components/SessionComplete';
 import ParentGate from './components/ParentGate';
@@ -16,6 +18,15 @@ import SettingsScreen from './components/SettingsScreen';
 import THEME from './constants/theme';
 import { bridgePromptForRound, COPLAY_HINT } from './constants/content';
 import { nounForCount } from './constants/subjects';
+
+const PEEK_DURATION_MS = 1600;
+
+const COUNTABLE_OBJECTS = {
+  ocean: Fish,
+  shapes: Shape,
+  colors: ColorBlob,
+  letters: Letter,
+} as const;
 
 function Game() {
   const {
@@ -32,6 +43,7 @@ function Game() {
     subjectId,
     setSubject,
     tapItem,
+    endPeek,
     nextRound,
     restartSession,
   } = useCounting();
@@ -68,6 +80,17 @@ function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase, round, level.emphasizeCardinality, subjectId]);
 
+  useEffect(() => {
+    // The subitizing level's peek: a brief, non-interactive look at the
+    // whole set (no numbers spoken — that would just be counting) before it
+    // becomes a normal tap-to-count round.
+    if (phase !== 'peeking') return undefined;
+    sound.speak('Look closely!');
+    const t = setTimeout(endPeek, PEEK_DURATION_MS);
+    return () => clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
+
   if (!fontsLoaded) return null;
 
   function handleTap(index: number) {
@@ -101,7 +124,8 @@ function Game() {
     );
   }
 
-  const CountableObject = subject.id === 'shapes' ? Shape : Fish;
+  const CountableObject = COUNTABLE_OBJECTS[subject.id];
+  const isPeeking = phase === 'peeking';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -124,13 +148,20 @@ function Game() {
         <OceanBackground />
         <View style={styles.objectRow}>
           {items.map((it, i) => (
-            <CountableObject key={it.id} index={i} counted={it.counted} order={it.order} onPress={() => handleTap(i)} />
+            <CountableObject
+              key={it.id}
+              index={i}
+              counted={it.counted}
+              order={it.order}
+              onPress={() => handleTap(i)}
+              interactive={!isPeeking}
+            />
           ))}
         </View>
       </View>
 
       <View style={styles.bottomBand}>
-        <Text style={styles.prompt}>{subject.prompt}</Text>
+        <Text style={styles.prompt}>{isPeeking ? 'Look closely! 👀' : subject.prompt}</Text>
         <Text style={styles.coplay}>{COPLAY_HINT}</Text>
       </View>
 

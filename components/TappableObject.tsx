@@ -11,12 +11,21 @@ import Animated, {
 import THEME from '../constants/theme';
 import CountBubble from './CountBubble';
 
-type Props = {
+// The props every subject's per-object component (Fish, Shape, ColorBlob,
+// Letter, ...) takes — shared so they don't each redeclare the same shape.
+export type CountableObjectProps = {
   index: number;
   counted: boolean;
   order: number | null;
   onPress: () => void;
-  // Singular, capitalized noun for the accessibility label, e.g. "Fish", "Shape".
+  // false during the subitizing level's "peek" beat: objects are visible
+  // (still idle-bobbing) but not yet tappable.
+  interactive?: boolean;
+};
+
+type Props = CountableObjectProps & {
+  // Singular, capitalized noun (+ any distinguishing detail) for the
+  // accessibility label, e.g. "Fish", "Circle shape", "Letter A".
   objectLabel: string;
   // The visual to render inside the tappable circle — an Image, an SVG shape, etc.
   children: ReactNode;
@@ -25,7 +34,15 @@ type Props = {
 // Shared idle-bob + spring-tap + counted-glow + number-bubble behavior for
 // any countable object. Subject-specific components (Fish, Shape, ...)
 // supply their own visual as `children` and wrap this.
-export default function TappableObject({ index, counted, order, onPress, objectLabel, children }: Props) {
+export default function TappableObject({
+  index,
+  counted,
+  order,
+  onPress,
+  objectLabel,
+  children,
+  interactive = true,
+}: Props) {
   const scale = useSharedValue(1);
   const bob = useSharedValue(0);
 
@@ -58,10 +75,11 @@ export default function TappableObject({ index, counted, order, onPress, objectL
   return (
     <Pressable
       onPress={handlePress}
+      disabled={!interactive}
       accessibilityRole="button"
       accessibilityLabel={label}
-      accessibilityHint="Tap to hear the number"
-      accessibilityState={{ selected: counted }}
+      accessibilityHint={interactive ? 'Tap to hear the number' : undefined}
+      accessibilityState={{ selected: counted, disabled: !interactive }}
       hitSlop={{ top: 20, bottom: 20, left: 20, right: 20 }}
       style={styles.hitArea}
     >
