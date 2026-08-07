@@ -11,6 +11,15 @@ export const COLORS = {
   fish: ['#FF9F43', '#FF6B9D', '#FFD34E'] as const,
 } as const;
 
+// Apply alpha to a locked palette token instead of hand-writing rgba(...).
+export function withOpacity(hex: string, opacity: number): string {
+  const n = parseInt(hex.replace('#', ''), 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r}, ${g}, ${b}, ${opacity})`;
+}
+
 export const SPACING = {
   xs: 4,
   s: 8,
@@ -55,6 +64,7 @@ const THEME = {
   SPACING,
   TYPE,
   MOTION,
+  withOpacity,
 };
 
 export default THEME;

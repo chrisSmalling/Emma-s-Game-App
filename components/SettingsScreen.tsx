@@ -33,7 +33,7 @@ export default function SettingsScreen({ visible, highestCountReached, onClose }
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, backgroundColor: 'rgba(10,77,110,0.85)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  backdrop: { flex: 1, backgroundColor: THEME.withOpacity(THEME.COLORS.deepWater, 0.85), alignItems: 'center', justifyContent: 'center', padding: 24 },
   card: { backgroundColor: '#fff', borderRadius: 20, padding: 24, width: '100%', maxWidth: 420 },
   title: { fontSize: THEME.TYPE.title, fontFamily: THEME.TYPE.fontFamilyBold, marginBottom: 16, color: THEME.COLORS.deepWater },
   body: { fontSize: THEME.TYPE.body, fontFamily: THEME.TYPE.fontFamily, marginBottom: 16 },

@@ -26,7 +26,9 @@
     "react-native-svg": "15.12.1",
     "react-native-web": "~0.21.0",
     "react-native-worklets": "0.5.1",
+    "lottie-react-native": "~7.3.1",
     "@expo-google-fonts/fredoka": "^0.4.1",
+    "@lottiefiles/dotlottie-react": "0.13.5",
     "@expo/metro-runtime": "~6.1.2",
     "@react-native-async-storage/async-storage": "2.2.0"
   },

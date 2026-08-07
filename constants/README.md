@@ -10,17 +10,19 @@ Contract (read this before adding UI colors, fonts, or motion):
 
 - Motion: Use the motion tokens in theme.MOTION. Taps use the spring config; bubbles use the bubble timing.
 
-- Celebration is code-driven (Confetti + CelebrationOverlay), not Lottie — this keeps the web bundle small and avoids a native-only dependency before the app has been user-tested. Revisit Lottie post-MVP if you want a fancier celebration.
+- Celebration is exactly ONE water-themed Lottie animation (assets/lottie/celebration.json), played once at round complete via CelebrationOverlay. Nothing else uses Lottie. On web this renders through @lottiefiles/dotlottie-react's WASM engine — see components/lottieWasmSetup.web.ts for why that needs a locally-bundled .wasm instead of its default CDN fetch (the app must run offline).
 
 - No network / no analytics: The app must remain local-only. Do not add third-party tracking or network calls.
 
 - Accessibility: Keep hit targets generous and expose accessible labels/hints. Follow the accessibility guidance in the repo.
 
 Files added:
-- constants/theme.ts — exported COLORS, SPACING, TYPE, MOTION tokens and a default theme export.
+- constants/theme.ts — exported COLORS, SPACING, TYPE, MOTION tokens, a
+  withOpacity(hex, opacity) helper for translucent fills (use this instead
+  of hand-writing an rgba() literal), and a default theme export.
 
 How to use:
-- import { COLORS, SPACING, TYPE, MOTION } from '../constants/theme';
+- import { COLORS, SPACING, TYPE, MOTION, withOpacity } from '../constants/theme';
 - Use COLORS.deepWater, SPACING.m, TYPE.title, MOTION.spring in components.
 
 Next steps to wire fonts:
