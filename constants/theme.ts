@@ -1,14 +1,14 @@
+// Locked palette — see DESIGN-BRIEF.md. Do not hardcode these colors
+// anywhere else; import COLORS instead.
 export const COLORS = {
   deepWater: '#0A4D6E', // gradient bottom
   midWater: '#1B98D5',
   surfaceWater: '#7FD8F7', // gradient top
-  sandyFloor: '#F4E4C1',
-  countedGlow: '#34D1A6',
+  sand: '#F4E4C1',
+  counted: '#34D1A6',
   celebration: '#FFD34E',
   accent: '#FF8A5B',
-  fish1: '#FF9F43',
-  fish2: '#FF6B9D',
-  fish3: '#FFD34E',
+  fish: ['#FF9F43', '#FF6B9D', '#FFD34E'] as const,
 } as const;
 
 export const SPACING = {

@@ -150,7 +150,7 @@ const styles = StyleSheet.create({
     minHeight: 84,
     padding: THEME.SPACING.l,
     alignItems: 'center',
-    backgroundColor: THEME.COLORS.sandyFloor,
+    backgroundColor: THEME.COLORS.sand,
   },
   prompt: { fontSize: THEME.TYPE.body, fontFamily: THEME.TYPE.fontFamilyBold, color: THEME.COLORS.deepWater },
   coplay: { fontSize: THEME.TYPE.small, fontFamily: THEME.TYPE.fontFamily, color: '#5b4a2f', marginTop: 4 },
