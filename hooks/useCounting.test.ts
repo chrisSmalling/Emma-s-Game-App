@@ -1,7 +1,14 @@
 import { act, renderHook } from '@testing-library/react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import useCounting from './useCounting';
 
 describe('useCounting', () => {
+  beforeEach(async () => {
+    // The AsyncStorage jest mock is a module-level singleton — clear it so
+    // a persisted level/highest-count from one test can't leak into the next.
+    await AsyncStorage.clear();
+  });
+
   it('starts round 1 with a single item, not counted', async () => {
     const { result } = await renderHook(() => useCounting());
     expect(result.current.round).toBe(1);
@@ -91,5 +98,54 @@ describe('useCounting', () => {
     expect(result.current.round).toBe(1);
     expect(result.current.phase).toBe('playing');
     expect(result.current.countedCount).toBe(0);
+  });
+
+  it('defaults to the one-to-one level (rounds 1 to 5)', async () => {
+    const { result } = await renderHook(() => useCounting());
+    expect(result.current.levelId).toBe('oneToOne');
+    expect(result.current.roundsPerSession).toBe(5);
+  });
+
+  it('switching to the rote level shrinks the session to rounds 1 to 3', async () => {
+    const { result } = await renderHook(() => useCounting());
+    await act(() => result.current.setLevel('rote'));
+
+    expect(result.current.levelId).toBe('rote');
+    expect(result.current.roundsPerSession).toBe(3);
+    expect(result.current.round).toBe(1);
+    expect(result.current.items).toHaveLength(1);
+
+    for (let round = 1; round <= 3; round++) {
+      for (let i = 0; i < round; i++) {
+        await act(() => {
+          result.current.tapItem(i);
+        });
+      }
+      expect(result.current.phase).toBe('roundComplete');
+      await act(() => result.current.nextRound());
+    }
+    expect(result.current.phase).toBe('sessionComplete');
+  });
+
+  it('changing level mid-round discards the stale in-progress round', async () => {
+    const { result } = await renderHook(() => useCounting());
+    await act(() => result.current.nextRound()); // round 2, two items
+    await act(() => {
+      result.current.tapItem(0);
+    });
+    expect(result.current.countedCount).toBe(1);
+
+    await act(() => result.current.setLevel('cardinality'));
+
+    expect(result.current.round).toBe(1);
+    expect(result.current.countedCount).toBe(0);
+    expect(result.current.phase).toBe('playing');
+    expect(result.current.level.emphasizeCardinality).toBe(true);
+  });
+
+  it('refuses to switch to a level marked comingSoon', async () => {
+    const { result } = await renderHook(() => useCounting());
+    await act(() => result.current.setLevel('subitizing'));
+    expect(result.current.levelId).toBe('oneToOne'); // unchanged
   });
 });

@@ -16,8 +16,20 @@ import THEME from './constants/theme';
 import { bridgePromptForRound, COPLAY_HINT, NOUN } from './constants/content';
 
 function Game() {
-  const { round, roundsPerSession, items, countedCount, phase, highestCountReached, tapItem, nextRound, restartSession } =
-    useCounting();
+  const {
+    round,
+    roundsPerSession,
+    items,
+    countedCount,
+    phase,
+    highestCountReached,
+    level,
+    levelId,
+    setLevel,
+    tapItem,
+    nextRound,
+    restartSession,
+  } = useCounting();
   const sound = useSound();
   const [settingsVisible, setSettingsVisible] = useState(false);
 
@@ -29,6 +41,17 @@ function Game() {
 
   useEffect(() => {
     if (phase === 'roundComplete') {
+      if (level.emphasizeCardinality) {
+        // Cardinality-emphasis levels ask the question before answering it,
+        // leaning harder into "the last number counted is the total".
+        sound.speak('How many fish are there?');
+        const askThenAnswer = setTimeout(() => sound.playTotal(round, NOUN), 1300);
+        const t = setTimeout(() => sound.speak(bridgePromptForRound(round)), 1300 + 1700);
+        return () => {
+          clearTimeout(askThenAnswer);
+          clearTimeout(t);
+        };
+      }
       sound.playTotal(round, NOUN);
       const t = setTimeout(() => sound.speak(bridgePromptForRound(round)), 1600);
       return () => clearTimeout(t);
@@ -38,7 +61,7 @@ function Game() {
     }
     return undefined;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [phase, round]);
+  }, [phase, round, level.emphasizeCardinality]);
 
   if (!fontsLoaded) return null;
 
@@ -106,6 +129,8 @@ function Game() {
       <SettingsScreen
         visible={settingsVisible}
         highestCountReached={highestCountReached}
+        levelId={levelId}
+        onSelectLevel={setLevel}
         onClose={() => setSettingsVisible(false)}
       />
     </SafeAreaView>

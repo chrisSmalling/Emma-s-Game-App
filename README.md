@@ -31,8 +31,9 @@ This app is built for young children, so its most important architectural
 property is what it *doesn't* do: **it collects nothing and talks to no one.**
 
 - **No data collection.** No accounts, no names, no photos, no voice recording,
-  no location, no device identifiers. The only thing persisted is a single
-  integer (the highest count reached), stored locally on the device.
+  no location, no device identifiers. The only things persisted are the
+  highest count reached and the chosen counting level, both stored locally
+  on the device.
 - **No network calls.** The app makes zero outbound requests at runtime. It runs
   fully in airplane mode. There is no telemetry, no analytics SDK, and no
   third-party service that receives any signal about the child or the session.
@@ -108,14 +109,16 @@ testable, and the UI is composed from small components.
   CountBubble             the number-in-a-bubble shown when counted
   CelebrationOverlay      full-screen Lottie + total; replaces the scene
   ParentGate              press-and-hold gate -> settings
-  SettingsScreen          placeholder grown-up settings screen
+  SettingsScreen          grown-up settings: best score + level picker
+  LevelPicker             the four counting-level rows shown in Settings
   lottieWasmSetup.web      pins the Lottie WASM engine to a local asset (web only)
   lottieWasmSetup          no-op on native (native uses platform Lottie engines)
 /hooks
-  useCounting             round state + tap-order counting + cardinality (pure, tested)
+  useCounting             round/level state + tap-order counting + cardinality (pure, tested)
   useSound                wraps expo-audio + expo-speech + expo-haptics
 /constants
   theme                   palette tokens, spacing scale, type scale, withOpacity()
+  levels                  the four-level developmental scaffold (see Roadmap)
 App.tsx                   composition only
 ```
 
@@ -168,8 +171,26 @@ zero network calls, and pure/tested counting logic. See `DESIGN-BRIEF.md`.
 
 ## Roadmap
 
-v1 (this): one polished counting activity, ocean-themed, evidence-based, offline.
-v2 (deferred by design): age levels mapped to the developmental ladder (rote →
-one-to-one → cardinality → subitizing), additional subjects, and a
-parent-gated subscription. Not built until the single activity is validated with
-real users.
+v1: one polished counting activity, ocean-themed, evidence-based, offline.
+
+v2 seed (this): a difficulty scaffold behind the parent gate, mapped onto the
+developmental ladder (`constants/levels.ts`):
+
+- **Rote Counting** (ages ~2) — rounds 1 to 3.
+- **One-to-One** (ages ~3) — rounds 1 to 5. Default, and identical to v1's
+  original behavior.
+- **Cardinality** (ages 2–4) — rounds 1 to 5, and the round-complete moment
+  asks "How many fish are there?" before answering, leaning harder into the
+  last-number-is-the-total concept.
+- **Subitizing** (ages ~4–5) — listed and selectable-looking in the picker,
+  but marked "coming soon" and disabled. Instantly recognizing a small set
+  *without* counting it is a genuinely different interaction model (flash,
+  hide, ask — no objects to tap), not a variant of the existing loop, so it
+  isn't playable yet. Picking it is a no-op.
+
+Selecting a level persists it locally (same mechanism as the high score) and
+restarts the session cleanly at round 1 in the new range.
+
+v2 (still deferred): the subitizing minigame itself, additional subjects, and
+a parent-gated subscription. Not built until the levels above are validated
+with real users.
