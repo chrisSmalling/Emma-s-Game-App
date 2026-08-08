@@ -1,7 +1,7 @@
 // v2: counting subjects beyond the original ocean fish, reusing the same
 // tap-order counting engine (hooks/useCounting.ts) with different objects.
 
-export type SubjectId = 'ocean' | 'shapes' | 'colors' | 'letters';
+export type SubjectId = 'ocean' | 'shapes' | 'colors' | 'letterShapes';
 
 export type SubjectConfig = {
   id: SubjectId;
@@ -48,8 +48,11 @@ export const SUBJECTS: SubjectConfig[] = [
     prompt: 'Tap each color once to count it',
   },
   {
-    id: 'letters',
-    label: 'Letters',
+    // Renamed from "Letters" to "Letter Shapes" to avoid colliding with the
+    // separate phonics vertical (components/letters/, LETTERS-VERTICAL-BRIEF.md)
+    // — this counts objects that happen to be letters; it isn't phonics.
+    id: 'letterShapes',
+    label: 'Letter Shapes',
     description: 'Big bold letters — A through E.',
     noun: 'letter',
     nounPlural: 'letters',

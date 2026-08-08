@@ -15,3 +15,20 @@
   (spoken numbers, cardinality restate, bridge prompts), and `expo-haptics`
   (light tap feedback). Works unchanged on native and web — all three Expo
   packages ship a web implementation.
+- `useLetters.ts` — pure progression state for the Letters (phonics) vertical.
+  Language-agnostic by design (see LETTERS-VERTICAL-BRIEF.md §7): every
+  exported helper (`flattenSequence`, `nextLetterToIntroduce`,
+  `learnedLetters`, `playableWords`) takes a `LettersContent` value as data
+  rather than assuming English/SATPIN, so a future `letters.pt.ts` can drive
+  the same engine. The hook wraps that with `learnedIds` state persisted to
+  AsyncStorage, `currentLetterId` (the next not-yet-learned letter in
+  sequence order), `markLearned`, and `resetProgress` — same
+  read-in-event-handler pattern as `useCounting.ts`, no side effects inside a
+  `setState` updater.
+- `usePhonics.ts` — wraps `expo-audio` for phoneme/word playback: one
+  pre-created `AudioPlayer` per letter and per word (via `createAudioPlayer`,
+  not the `useAudioPlayer` hook, since the set is too large/dynamic to call a
+  hook per key), plus `playBlend()` for the Stage C "slow blend" sequence
+  (each letter's sound, then the whole word). Deliberately not TTS — see
+  `assets/audio/phonics/README.md`. Every key currently points at a single
+  non-speech placeholder blip until real recordings are dropped in.

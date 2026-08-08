@@ -107,25 +107,32 @@ testable, and the UI is composed from small components.
   OceanBackground         gradient + sand + rising bubbles + seaweed
   TappableObject          shared idle-bob + spring-tap + counted-glow + number-bubble
   Fish / Shape /          each subject's visual: a thin TappableObject wrapper
-  ColorBlob / Letter
+  ColorBlob / LetterShape
   ShapeGraphic            circle/square/triangle/star, drawn with react-native-svg
   CountBubble             the number-in-a-bubble shown when counted
   CelebrationOverlay      full-screen Lottie + total; replaces the scene
   ParentGate              press-and-hold gate -> settings
-  SettingsScreen          grown-up settings: best score + subject/level pickers
-  OptionPicker            generic row-list picker (used by both pickers below)
+  SettingsScreen          grown-up settings: activity picker + (Counting only) best score + subject/level pickers
+  OptionPicker            generic row-list picker (used by all pickers below)
+  ActivityPicker          the top-level activity rows (Counting / Letters) shown in Settings
   SubjectPicker           the counting-subject rows shown in Settings
   LevelPicker             the counting-level rows shown in Settings
   lottieWasmSetup.web      pins the Lottie WASM engine to a local asset (web only)
   lottieWasmSetup          no-op on native (native uses platform Lottie engines)
+  /letters
+    LettersHome           Letters activity entry point (Stage L0 placeholder — see Roadmap)
 /hooks
   useCounting             round/level/subject/peek state + tap-order counting (pure, tested)
   useSound                wraps expo-audio + expo-speech + expo-haptics
+  useLetters              Letters vertical progression state (pure, tested) — see Roadmap
+  usePhonics              wraps expo-audio for letter/word phoneme playback — see Roadmap
 /constants
   theme                   palette tokens, spacing scale, type scale, withOpacity()
   levels                  the four-level developmental scaffold (see Roadmap)
   subjects                the four counting subjects (see Roadmap)
-App.tsx                   composition only
+  activities              the app's top-level activities: Counting, Letters
+  letters.en              English phonics curriculum (SATPIN order, picture cues, CVC words)
+App.tsx                   Root (persisted activity choice) -> Game (Counting) or LettersHome
 ```
 
 - **`useCounting`** holds all counting logic and is covered by unit tests. Side
@@ -135,12 +142,20 @@ App.tsx                   composition only
   is hardcoded in a component. A `withOpacity(hex, opacity)` helper covers
   translucent cases (e.g. modal backdrops) so even those reference the palette.
 - **Subjects are thin visual wrappers.** `TappableObject` owns all the shared
-  tap/motion/counted-state behavior; `Fish`, `Shape`, `ColorBlob`, and `Letter`
-  each just supply what goes inside it (an `Image`, an SVG shape, a colored
-  `View`, or a `Text` glyph) plus an `objectLabel` for accessibility. Adding a
-  future subject means writing one small wrapper component and a
-  `constants/subjects.ts` entry — the counting engine, motion, and sound
-  don't change.
+  tap/motion/counted-state behavior; `Fish`, `Shape`, `ColorBlob`, and
+  `LetterShape` each just supply what goes inside it (an `Image`, an SVG
+  shape, a colored `View`, or a `Text` glyph) plus an `objectLabel` for
+  accessibility. Adding a future subject means writing one small wrapper
+  component and a `constants/subjects.ts` entry — the counting engine,
+  motion, and sound don't change.
+- **Activities are top-level siblings, not Counting subjects.** `App.tsx`'s
+  `Root` component owns a persisted `activityId` and renders either `Game`
+  (Counting) or `LettersHome` (Letters) — never both, so each activity's
+  hooks (and their audio players) only mount while that activity is active.
+  `SettingsScreen` always shows the `ActivityPicker`; the subject/level
+  pickers only render when the active screen passes counting-specific props,
+  which `LettersHome` doesn't. See `LETTERS-VERTICAL-BRIEF.md` for why
+  Letters is a peer vertical rather than a fifth counting subject.
 
 ---
 
@@ -219,9 +234,10 @@ Architecture above:
 - **Ocean Fish** — the original. Default.
 - **Shapes** — circle/square/triangle/star, drawn with `react-native-svg`.
 - **Colors** — solid-color circles, a distinct set of locked-palette swatches.
-- **Letters** — big bold A–E glyphs. Counts objects that happen to be
-  letters; doesn't teach letter sounds or names (out of scope — this is a
-  counting app, not a phonics one).
+- **Letter Shapes** — big bold A–E glyphs. Counts objects that happen to be
+  letters; doesn't teach letter sounds or names. (Renamed from "Letters" to
+  avoid colliding with the separate Letters *activity* below, which does
+  teach letter sounds.)
 
 v2 (still not built — the one deliberately deferred item): a **parent-gated
 subscription**. This is a different kind of work than everything above: real
@@ -230,3 +246,42 @@ Console, a purchase flow, entitlement gating, and platform-specific payment
 code that can't be meaningfully verified from a web sandbox the way
 everything else in this README was. Needs real device testing and store
 account access before it's built.
+
+---
+
+## Letters — a second activity vertical
+
+Letters (phonics) is a second top-level activity alongside Counting, per
+`LETTERS-VERTICAL-BRIEF.md` — a full design brief covering pedagogy (SATPIN
+letter order, sounds-before-names, blending), the "supportive tutor" no-fail
+feedback pattern adapted for a domain that (unlike counting) has right/wrong
+answers, and a staged build plan (L0–L4). It reuses the Counting app's theme,
+fonts, motion tokens, and offline-first privacy model — nothing new was added
+to the tech stack.
+
+**Stage L0 — Foundation (done):**
+
+- `constants/letters.en.ts` — the English curriculum: SATPIN-ordered letter
+  sets, per-letter picture cues (`s` → 🐍 snake), and CVC word lists,
+  structured so a future `letters.pt.ts` can plug into the same engine
+  (brief §7 — language-keyed, not English-only).
+- `hooks/useLetters.ts` — pure, tested progression state: which letters are
+  learned, and the next one to introduce, persisted to AsyncStorage the same
+  way `useCounting` persists its own state.
+- `hooks/usePhonics.ts` — letter/word audio playback via `expo-audio`,
+  deliberately *not* TTS (`expo-speech`), since synthesized speech
+  mispronounces isolated phonemes (brief §5). Every clip currently points at
+  one honest, non-speech placeholder blip tone — see
+  `assets/audio/phonics/README.md` for exactly what real recordings are
+  needed before this vertical's Stage A is actually done.
+- `components/letters/LettersHome.tsx` + `constants/activities.ts` — a real
+  entry point: an "Activity" picker in Settings switches between Counting and
+  Letters, and Letters shows the real current SATPIN letter (glyph + picture
+  cue) as a "Coming soon!" preview. No tap interaction yet — that's Stage L1.
+
+**Not yet built** (per the brief's own staging, each stage ships and is
+confirmed before the next starts): L1 (Stage A recognition + sound
+screen), L2 (SoundMatch), L3 (WordBuilder blending), L4 (Set 2 + mastery
+tracking). Real phoneme recordings, a Portuguese curriculum layer, more
+letter sets, and tracing/handwriting are all explicitly out of scope until
+requested (brief §9, "Later (separate)").

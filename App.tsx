@@ -3,6 +3,7 @@ import { StatusBar } from 'expo-status-bar';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { useFonts, Fredoka_400Regular, Fredoka_600SemiBold, Fredoka_700Bold } from '@expo-google-fonts/fredoka';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import useCounting from './hooks/useCounting';
 import useSound from './hooks/useSound';
@@ -10,25 +11,33 @@ import OceanBackground from './components/OceanBackground';
 import Fish from './components/Fish';
 import Shape from './components/Shape';
 import ColorBlob from './components/ColorBlob';
-import Letter from './components/Letter';
+import LetterShape from './components/LetterShape';
 import CelebrationOverlay from './components/CelebrationOverlay';
 import SessionComplete from './components/SessionComplete';
 import ParentGate from './components/ParentGate';
 import SettingsScreen from './components/SettingsScreen';
+import LettersHome from './components/letters/LettersHome';
 import THEME from './constants/theme';
 import { bridgePromptForRound, COPLAY_HINT } from './constants/content';
 import { nounForCount } from './constants/subjects';
+import { ACTIVITIES, ActivityId, DEFAULT_ACTIVITY_ID } from './constants/activities';
 
 const PEEK_DURATION_MS = 1600;
+const STORAGE_KEY_ACTIVITY = 'littleLearner.activityId';
 
 const COUNTABLE_OBJECTS = {
   ocean: Fish,
   shapes: Shape,
   colors: ColorBlob,
-  letters: Letter,
+  letterShapes: LetterShape,
 } as const;
 
-function Game() {
+type GameProps = {
+  activityId: ActivityId;
+  onSelectActivity: (id: ActivityId) => void;
+};
+
+function Game({ activityId, onSelectActivity }: GameProps) {
   const {
     round,
     roundsPerSession,
@@ -167,6 +176,8 @@ function Game() {
 
       <SettingsScreen
         visible={settingsVisible}
+        activityId={activityId}
+        onSelectActivity={onSelectActivity}
         highestCountReached={highestCountReached}
         levelId={levelId}
         onSelectLevel={setLevel}
@@ -178,10 +189,39 @@ function Game() {
   );
 }
 
+function Root() {
+  const [activityId, setActivityId] = useState<ActivityId>(DEFAULT_ACTIVITY_ID);
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY_ACTIVITY)
+      .then(value => {
+        if (value && ACTIVITIES.some(a => a.id === value)) {
+          setActivityId(value as ActivityId);
+        }
+      })
+      .catch(() => {
+        // no persisted activity yet, or storage unavailable — start on the default
+      });
+  }, []);
+
+  function selectActivity(id: ActivityId) {
+    setActivityId(id);
+    AsyncStorage.setItem(STORAGE_KEY_ACTIVITY, id).catch(() => {});
+  }
+
+  // Rendering a different top-level component per activity (rather than
+  // branching inside one component) keeps each activity's hooks — and their
+  // audio players — from ever mounting while the other activity is active.
+  if (activityId === 'letters') {
+    return <LettersHome activityId={activityId} onSelectActivity={selectActivity} />;
+  }
+  return <Game activityId={activityId} onSelectActivity={selectActivity} />;
+}
+
 export default function App() {
   return (
     <SafeAreaProvider>
-      <Game />
+      <Root />
     </SafeAreaProvider>
   );
 }

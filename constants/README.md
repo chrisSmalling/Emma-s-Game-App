@@ -29,3 +29,16 @@ Next steps to wire fonts:
 - Install @expo-google-fonts/fredoka and expo-font, then load the Fredoka family in App startup and map TYPE.fontFamily to the loaded font name.
 
 If you want a different token (additional spacing or type sizes), add it here and I will keep the tokens authoritative.
+
+Other data-driven content in this folder (same pattern: typed config,
+consumed generically by engine code, never hardcoded):
+- `levels.ts` / `subjects.ts` — the Counting activity's difficulty levels and
+  countable subjects (ocean fish, shapes, colors, letter shapes).
+- `activities.ts` — the app's top-level activities (Counting, Letters). See
+  LETTERS-VERTICAL-BRIEF.md §8 — Letters is a sibling vertical, not a
+  Counting subject, so it's a peer entry here rather than in subjects.ts.
+- `letters.en.ts` — the English phonics curriculum for the Letters vertical:
+  SATPIN-ordered letter sets, per-letter picture cues, and CVC word lists.
+  Language-keyed by design — see the file header and
+  LETTERS-VERTICAL-BRIEF.md §7 for why the engine (`hooks/useLetters.ts`,
+  `hooks/usePhonics.ts`) must never assume English.
