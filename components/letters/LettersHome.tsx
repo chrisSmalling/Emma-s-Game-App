@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import useLetters from '../../hooks/useLetters';
+import useLetterIntroduction from '../../hooks/useLetterIntroduction';
 import THEME from '../../constants/theme';
+import { LETTERS_COPLAY_HINT } from '../../constants/content';
 import OceanBackground from '../OceanBackground';
 import ParentGate from '../ParentGate';
 import SettingsScreen from '../SettingsScreen';
+import LetterCard from './LetterCard';
 import { ActivityId } from '../../constants/activities';
 
 type Props = {
@@ -13,15 +15,14 @@ type Props = {
   onSelectActivity: (id: ActivityId) => void;
 };
 
-// Stage L0 placeholder (LETTERS-VERTICAL-BRIEF.md): proves the Letters
-// activity is wired up end to end — real data model, real progress hook,
-// real entry point — with no tap interaction yet. Stage A's actual
-// recognition + sound screen lands in L1.
+// Stage A / L1 (LETTERS-VERTICAL-BRIEF.md §2): recognition + sound. One
+// letter at a time, tap to hear its phoneme and reveal its picture cue, a
+// calm "Next" control to advance — pure exposure, no quiz, no score. All
+// the rotation logic (SATPIN order, revisiting learned letters before a new
+// one) lives in useLetterIntroduction; this component just renders it.
 export default function LettersHome({ activityId, onSelectActivity }: Props) {
-  const { content, currentLetterId } = useLetters();
+  const { letter, revealed, handleLetterPress, handleNext } = useLetterIntroduction();
   const [settingsVisible, setSettingsVisible] = useState(false);
-
-  const letter = currentLetterId ? content.letters[currentLetterId] : null;
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -32,19 +33,26 @@ export default function LettersHome({ activityId, onSelectActivity }: Props) {
 
       <View style={styles.scene}>
         <OceanBackground />
-        <View style={styles.card}>
-          {letter ? (
-            <>
-              <Text style={styles.letterGlyph}>{letter.display}</Text>
-              <Text style={styles.cue}>
-                {letter.pictureCue.emoji} {letter.pictureCue.word}
-              </Text>
-              <Text style={styles.comingSoon}>Coming soon!</Text>
-            </>
-          ) : (
-            <Text style={styles.comingSoon}>All letters learned — more coming soon!</Text>
-          )}
-        </View>
+        {letter ? (
+          <LetterCard letter={letter} revealed={revealed} onPress={handleLetterPress} />
+        ) : (
+          <View style={styles.card}>
+            <Text style={styles.comingSoon}>More letters coming soon!</Text>
+          </View>
+        )}
+      </View>
+
+      <View style={styles.bottomBand}>
+        <Pressable
+          onPress={handleNext}
+          disabled={!letter}
+          style={[styles.nextButton, !letter && styles.nextButtonDisabled]}
+          accessibilityRole="button"
+          accessibilityLabel="Next letter"
+        >
+          <Text style={styles.nextButtonText}>Next letter</Text>
+        </Pressable>
+        <Text style={styles.coplay}>{LETTERS_COPLAY_HINT}</Text>
       </View>
 
       <SettingsScreen
@@ -68,7 +76,7 @@ const styles = StyleSheet.create({
     backgroundColor: THEME.COLORS.midWater,
   },
   title: { fontSize: THEME.TYPE.title, fontFamily: THEME.TYPE.fontFamilyBold, color: '#fff' },
-  scene: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  scene: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
   card: {
     backgroundColor: '#fff',
     borderRadius: 24,
@@ -77,7 +85,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     zIndex: 1,
   },
-  letterGlyph: { fontSize: 96, fontFamily: THEME.TYPE.fontFamilyBold, color: THEME.COLORS.deepWater },
-  cue: { fontSize: THEME.TYPE.title, fontFamily: THEME.TYPE.fontFamily, color: THEME.COLORS.deepWater, marginTop: THEME.SPACING.m },
-  comingSoon: { fontSize: THEME.TYPE.body, fontFamily: THEME.TYPE.fontFamilyBold, color: THEME.COLORS.accent, marginTop: THEME.SPACING.l },
+  comingSoon: { fontSize: THEME.TYPE.body, fontFamily: THEME.TYPE.fontFamilyBold, color: THEME.COLORS.accent },
+  bottomBand: {
+    minHeight: 84,
+    padding: THEME.SPACING.l,
+    alignItems: 'center',
+    backgroundColor: THEME.COLORS.sand,
+  },
+  nextButton: { backgroundColor: THEME.COLORS.accent, paddingHorizontal: THEME.SPACING.xxl, paddingVertical: THEME.SPACING.m, borderRadius: 16 },
+  nextButtonDisabled: { opacity: 0.5 },
+  nextButtonText: { color: '#fff', fontSize: 18, fontFamily: THEME.TYPE.fontFamilyBold },
+  coplay: { fontSize: THEME.TYPE.small, fontFamily: THEME.TYPE.fontFamily, color: '#5b4a2f', marginTop: THEME.SPACING.s },
 });

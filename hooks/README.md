@@ -28,7 +28,18 @@
 - `usePhonics.ts` — wraps `expo-audio` for phoneme/word playback: one
   pre-created `AudioPlayer` per letter and per word (via `createAudioPlayer`,
   not the `useAudioPlayer` hook, since the set is too large/dynamic to call a
-  hook per key), plus `playBlend()` for the Stage C "slow blend" sequence
-  (each letter's sound, then the whole word). Deliberately not TTS — see
-  `assets/audio/phonics/README.md`. Every key currently points at a single
-  non-speech placeholder blip until real recordings are dropped in.
+  hook per key). `playSound(letterId)` plays one letter's phoneme (Stage A);
+  `playBlend()` chains a word's letters then the whole word for the Stage C
+  "slow blend". Deliberately not runtime TTS — see
+  `assets/audio/phonics/README.md`. Every letter/word key points at real,
+  distinct audio generated locally and offline by `scripts/generate-phonics-
+  audio.mjs` (eSpeak NG, run once at dev time, never imported by app code —
+  same README has the full phoneme table and known trouble spots).
+- `useLetterIntroduction.ts` — Stage A/L1's screen logic: pure exposure, no
+  quiz. Composes `useLetters` + `usePhonics` into one rotation a child taps
+  through — every already-learned letter revisited, then the next
+  not-yet-learned one at the end (`buildQueue`/`isAtNewLetterSlot` are
+  exported and unit-tested standalone). Tapping the displayed letter calls
+  `playSound` and reveals its picture cue; `handleNext` either advances the
+  cursor or, on the not-yet-learned slot, calls `useLetters`'s `markLearned`
+  and loops back to the start of the (now one letter longer) revisit set.

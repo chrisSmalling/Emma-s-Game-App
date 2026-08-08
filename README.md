@@ -120,12 +120,14 @@ testable, and the UI is composed from small components.
   lottieWasmSetup.web      pins the Lottie WASM engine to a local asset (web only)
   lottieWasmSetup          no-op on native (native uses platform Lottie engines)
   /letters
-    LettersHome           Letters activity entry point (Stage L0 placeholder — see Roadmap)
+    LettersHome           Letters activity screen: Stage A recognition + sound (see Roadmap)
+    LetterCard            the tappable letter glyph + revealed picture cue
 /hooks
   useCounting             round/level/subject/peek state + tap-order counting (pure, tested)
   useSound                wraps expo-audio + expo-speech + expo-haptics
   useLetters              Letters vertical progression state (pure, tested) — see Roadmap
   usePhonics              wraps expo-audio for letter/word phoneme playback — see Roadmap
+  useLetterIntroduction   Stage A rotation/session logic for LettersHome (pure, tested) — see Roadmap
 /constants
   theme                   palette tokens, spacing scale, type scale, withOpacity()
   levels                  the four-level developmental scaffold (see Roadmap)

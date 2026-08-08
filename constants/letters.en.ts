@@ -9,6 +9,8 @@
 export type LetterId = string; // 's' | 'a' | ... | 'ck' (digraphs are 2 chars)
 
 export type LetterEntry = {
+  // Also doubles as the sound-file key: hooks/usePhonics.ts's playSound(id)
+  // plays assets/audio/phonics/en/sounds/<id>.mp3.
   id: LetterId;
   // Lowercase display glyph — early phonics programs (this curriculum is
   // modeled on synthetic phonics / SATPIN, e.g. Jolly Phonics) teach the

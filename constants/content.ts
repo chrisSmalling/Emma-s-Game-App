@@ -15,3 +15,6 @@ export function bridgePromptForRound(round: number): string {
 
 // Co-play hook: addresses the grown-up, not the child, to invite them in.
 export const COPLAY_HINT = 'Grown-up: count out loud together!';
+
+// Same co-play pattern, for the Letters vertical's Stage A screen.
+export const LETTERS_COPLAY_HINT = 'Grown-up: say the sound together!';

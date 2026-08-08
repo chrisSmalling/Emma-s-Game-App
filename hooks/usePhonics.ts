@@ -1,53 +1,58 @@
 import { useEffect, useRef } from 'react';
 import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 
-// TODO(real audio): every key below currently points at the same non-speech
-// placeholder blip tone — see assets/audio/phonics/README.md for why (not
-// TTS, not synthesized — real recordings are required) and what to record.
-// Swapping in a real clip is a one-line change per key; nothing else in this
-// hook needs to change.
-const PLACEHOLDER = require('../assets/audio/phonics/en/_placeholder.wav');
-
-// Keys match constants/letters.en.ts LetterEntry.id / WordEntry.word exactly.
+// Generated locally by scripts/generate-phonics-audio.mjs (eSpeak NG, run
+// once at build/dev time — never at runtime, never imported by app code).
+// See assets/audio/phonics/README.md for the phoneme choice behind each
+// letter and the known trouble spots (stop-consonant schwa, short-vowel
+// quality, /r/'s isolation limits). Each letter has its own file so
+// regenerating one — or eventually swapping in a real recording — never
+// touches this hook. Metro requires each require() path to be a static
+// literal, which is why every key is spelled out below rather than built
+// from a template. If a future letter/word is added to
+// constants/letters.en.ts before its audio is generated, point its
+// require() at _placeholder.wav until `generate-phonics-audio.mjs` covers it.
 const LETTER_SOURCES: Record<string, ReturnType<typeof require>> = {
-  s: PLACEHOLDER,
-  a: PLACEHOLDER,
-  t: PLACEHOLDER,
-  p: PLACEHOLDER,
-  i: PLACEHOLDER,
-  n: PLACEHOLDER,
-  m: PLACEHOLDER,
-  d: PLACEHOLDER,
-  g: PLACEHOLDER,
-  o: PLACEHOLDER,
-  c: PLACEHOLDER,
-  k: PLACEHOLDER,
-  ck: PLACEHOLDER,
-  e: PLACEHOLDER,
-  u: PLACEHOLDER,
-  r: PLACEHOLDER,
-  h: PLACEHOLDER,
-  b: PLACEHOLDER,
-  f: PLACEHOLDER,
-  l: PLACEHOLDER,
+  s: require('../assets/audio/phonics/en/sounds/s.wav'),
+  a: require('../assets/audio/phonics/en/sounds/a.wav'),
+  t: require('../assets/audio/phonics/en/sounds/t.wav'),
+  p: require('../assets/audio/phonics/en/sounds/p.wav'),
+  i: require('../assets/audio/phonics/en/sounds/i.wav'),
+  n: require('../assets/audio/phonics/en/sounds/n.wav'),
+  m: require('../assets/audio/phonics/en/sounds/m.wav'),
+  d: require('../assets/audio/phonics/en/sounds/d.wav'),
+  g: require('../assets/audio/phonics/en/sounds/g.wav'),
+  o: require('../assets/audio/phonics/en/sounds/o.wav'),
+  c: require('../assets/audio/phonics/en/sounds/c.wav'),
+  k: require('../assets/audio/phonics/en/sounds/k.wav'),
+  ck: require('../assets/audio/phonics/en/sounds/ck.wav'),
+  e: require('../assets/audio/phonics/en/sounds/e.wav'),
+  u: require('../assets/audio/phonics/en/sounds/u.wav'),
+  r: require('../assets/audio/phonics/en/sounds/r.wav'),
+  h: require('../assets/audio/phonics/en/sounds/h.wav'),
+  b: require('../assets/audio/phonics/en/sounds/b.wav'),
+  f: require('../assets/audio/phonics/en/sounds/f.wav'),
+  l: require('../assets/audio/phonics/en/sounds/l.wav'),
 };
 
+// Same generation pipeline, plain-text input (natural word blending, not
+// isolated phonemes) — the Stage C "…sat!" payoff.
 const WORD_SOURCES: Record<string, ReturnType<typeof require>> = {
-  at: PLACEHOLDER,
-  sat: PLACEHOLDER,
-  pat: PLACEHOLDER,
-  tap: PLACEHOLDER,
-  tip: PLACEHOLDER,
-  pin: PLACEHOLDER,
-  pan: PLACEHOLDER,
-  nap: PLACEHOLDER,
-  sip: PLACEHOLDER,
-  mad: PLACEHOLDER,
-  dog: PLACEHOLDER,
-  cat: PLACEHOLDER,
-  cot: PLACEHOLDER,
-  kid: PLACEHOLDER,
-  mop: PLACEHOLDER,
+  at: require('../assets/audio/phonics/en/words/at.wav'),
+  sat: require('../assets/audio/phonics/en/words/sat.wav'),
+  pat: require('../assets/audio/phonics/en/words/pat.wav'),
+  tap: require('../assets/audio/phonics/en/words/tap.wav'),
+  tip: require('../assets/audio/phonics/en/words/tip.wav'),
+  pin: require('../assets/audio/phonics/en/words/pin.wav'),
+  pan: require('../assets/audio/phonics/en/words/pan.wav'),
+  nap: require('../assets/audio/phonics/en/words/nap.wav'),
+  sip: require('../assets/audio/phonics/en/words/sip.wav'),
+  mad: require('../assets/audio/phonics/en/words/mad.wav'),
+  dog: require('../assets/audio/phonics/en/words/dog.wav'),
+  cat: require('../assets/audio/phonics/en/words/cat.wav'),
+  cot: require('../assets/audio/phonics/en/words/cot.wav'),
+  kid: require('../assets/audio/phonics/en/words/kid.wav'),
+  mop: require('../assets/audio/phonics/en/words/mop.wav'),
 };
 
 // Pacing for the Stage C "slow blend" (brief §2 Stage C): a pause between
@@ -113,7 +118,7 @@ export default function usePhonics() {
     }
   }
 
-  function playLetterSound(letterId: string) {
+  function playSound(letterId: string) {
     return playFrom(letterPlayers, letterId);
   }
 
@@ -125,7 +130,7 @@ export default function usePhonics() {
   // order, then the whole word — "/sss/-/a/-/t/… sat!"
   async function playBlend(letterIds: string[], word: string) {
     for (const id of letterIds) {
-      await playLetterSound(id);
+      await playSound(id);
       await wait(BLEND_LETTER_PAUSE_MS);
     }
     await wait(BLEND_TO_WORD_PAUSE_MS);
@@ -133,7 +138,7 @@ export default function usePhonics() {
   }
 
   return {
-    playLetterSound,
+    playSound,
     playWord,
     playBlend,
   } as const;
