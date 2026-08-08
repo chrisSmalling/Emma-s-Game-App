@@ -1,64 +1,69 @@
-import React, { useState } from 'react';
-import { Pressable, StyleSheet, Text, View } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import useLetterIntroduction from '../../hooks/useLetterIntroduction';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import THEME from '../../constants/theme';
-import { LETTERS_COPLAY_HINT } from '../../constants/content';
-import OceanBackground from '../OceanBackground';
+import { ActivityId } from '../../constants/activities';
+import { DEFAULT_LETTER_STAGE_ID, LETTER_STAGES, LetterStageId } from '../../constants/letterStages';
 import ParentGate from '../ParentGate';
 import SettingsScreen from '../SettingsScreen';
-import LetterCard from './LetterCard';
-import { ActivityId } from '../../constants/activities';
+import PracticeScreen from './PracticeScreen';
+import SoundMatchScreen from './SoundMatchScreen';
+
+const STORAGE_KEY_STAGE = 'littleLearner.letters.en.stageId';
 
 type Props = {
   activityId: ActivityId;
   onSelectActivity: (id: ActivityId) => void;
 };
 
-// Stage A / L1 (LETTERS-VERTICAL-BRIEF.md §2): recognition + sound. One
-// letter at a time, tap to hear its phoneme and reveal its picture cue, a
-// calm "Next" control to advance — pure exposure, no quiz, no score. All
-// the rotation logic (SATPIN order, revisiting learned letters before a new
-// one) lives in useLetterIntroduction; this component just renders it.
+// Root of the Letters activity: owns which internal stage is active
+// (LETTERS-VERTICAL-BRIEF.md §2 — Stage A "Practice" is built as L1, Stage B
+// "Sound Match" as L2; Stage C "Word Building" isn't built yet) and the
+// chrome shared across all of them (title, parent gate, settings). Each
+// stage is a fully self-contained screen (its own OceanBackground, scene,
+// bottom band) — this component only switches between them.
 export default function LettersHome({ activityId, onSelectActivity }: Props) {
-  const { letter, revealed, handleLetterPress, handleNext } = useLetterIntroduction();
+  const [stageId, setStageId] = useState<LetterStageId>(DEFAULT_LETTER_STAGE_ID);
   const [settingsVisible, setSettingsVisible] = useState(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY_STAGE)
+      .then(value => {
+        if (value && LETTER_STAGES.some(s => s.id === value)) {
+          setStageId(value as LetterStageId);
+        }
+      })
+      .catch(() => {
+        // no persisted stage yet, or storage unavailable — start on the default
+      });
+  }, []);
+
+  function selectStage(id: LetterStageId) {
+    setStageId(id);
+    AsyncStorage.setItem(STORAGE_KEY_STAGE, id).catch(() => {});
+  }
+
+  const stageLabel = LETTER_STAGES.find(s => s.id === stageId)?.label ?? '';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
       <View style={styles.topBand}>
-        <Text style={styles.title}>Letters</Text>
+        <View style={styles.topBandLeft}>
+          <Text style={styles.title}>Letters</Text>
+          <Text style={styles.stageLabel}>{stageLabel}</Text>
+        </View>
         <ParentGate onUnlock={() => setSettingsVisible(true)} />
       </View>
 
-      <View style={styles.scene}>
-        <OceanBackground />
-        {letter ? (
-          <LetterCard letter={letter} revealed={revealed} onPress={handleLetterPress} />
-        ) : (
-          <View style={styles.card}>
-            <Text style={styles.comingSoon}>More letters coming soon!</Text>
-          </View>
-        )}
-      </View>
-
-      <View style={styles.bottomBand}>
-        <Pressable
-          onPress={handleNext}
-          disabled={!letter}
-          style={[styles.nextButton, !letter && styles.nextButtonDisabled]}
-          accessibilityRole="button"
-          accessibilityLabel="Next letter"
-        >
-          <Text style={styles.nextButtonText}>Next letter</Text>
-        </Pressable>
-        <Text style={styles.coplay}>{LETTERS_COPLAY_HINT}</Text>
-      </View>
+      {stageId === 'soundMatch' ? <SoundMatchScreen /> : <PracticeScreen />}
 
       <SettingsScreen
         visible={settingsVisible}
         activityId={activityId}
         onSelectActivity={onSelectActivity}
+        letterStageId={stageId}
+        onSelectLetterStage={selectStage}
         onClose={() => setSettingsVisible(false)}
       />
     </SafeAreaView>
@@ -75,25 +80,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     backgroundColor: THEME.COLORS.midWater,
   },
+  topBandLeft: { flexShrink: 1 },
   title: { fontSize: THEME.TYPE.title, fontFamily: THEME.TYPE.fontFamilyBold, color: '#fff' },
-  scene: { flex: 1, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 24,
-    paddingVertical: THEME.SPACING.xxl,
-    paddingHorizontal: THEME.SPACING.xxl,
-    alignItems: 'center',
-    zIndex: 1,
-  },
-  comingSoon: { fontSize: THEME.TYPE.body, fontFamily: THEME.TYPE.fontFamilyBold, color: THEME.COLORS.accent },
-  bottomBand: {
-    minHeight: 84,
-    padding: THEME.SPACING.l,
-    alignItems: 'center',
-    backgroundColor: THEME.COLORS.sand,
-  },
-  nextButton: { backgroundColor: THEME.COLORS.accent, paddingHorizontal: THEME.SPACING.xxl, paddingVertical: THEME.SPACING.m, borderRadius: 16 },
-  nextButtonDisabled: { opacity: 0.5 },
-  nextButtonText: { color: '#fff', fontSize: 18, fontFamily: THEME.TYPE.fontFamilyBold },
-  coplay: { fontSize: THEME.TYPE.small, fontFamily: THEME.TYPE.fontFamily, color: '#5b4a2f', marginTop: THEME.SPACING.s },
+  stageLabel: { fontSize: THEME.TYPE.small, fontFamily: THEME.TYPE.fontFamily, color: 'rgba(255,255,255,0.85)' },
 });

@@ -43,3 +43,18 @@
   `playSound` and reveals its picture cue; `handleNext` either advances the
   cursor or, on the not-yet-learned slot, calls `useLetters`'s `markLearned`
   and loops back to the start of the (now one letter longer) revisit set.
+- `useSoundMatch.ts` — Stage B/L2's round + feedback logic. `pickRound`
+  (pure, injectable-random, unit-tested) picks a target and 2-3 options from
+  only the already-learned letters (`useLetters`'s `availableForMatching`),
+  avoiding an immediate repeat of the previous target. `handleOptionPress`
+  never fails: a correct tap plays a confirmation chime + the letter's own
+  sound, celebrates (`phase: 'correct'`), and after a pause auto-advances to
+  a new round; a wrong tap gets the *exact same* gentle reaction as a
+  correct one — no lesser feedback — plays that letter's own sound
+  (`phase: 'exploring'`), then re-invites by replaying the target sound on
+  the same round with the same options (brief §4's "supportive tutor"
+  pattern). Deliberately does **not** auto-play the target when a round
+  starts — confirmed live that browsers block audio playback that isn't a
+  direct response to a user gesture, so `playTarget()` only ever fires from
+  an explicit tap on the prompt card, same as every other sound in this
+  vertical.

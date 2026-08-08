@@ -112,27 +112,33 @@ testable, and the UI is composed from small components.
   CountBubble             the number-in-a-bubble shown when counted
   CelebrationOverlay      full-screen Lottie + total; replaces the scene
   ParentGate              press-and-hold gate -> settings
-  SettingsScreen          grown-up settings: activity picker + (Counting only) best score + subject/level pickers
+  SettingsScreen          grown-up settings: activity picker + (Counting only) best score + subject/level pickers + (Letters only) stage picker
   OptionPicker            generic row-list picker (used by all pickers below)
   ActivityPicker          the top-level activity rows (Counting / Letters) shown in Settings
   SubjectPicker           the counting-subject rows shown in Settings
   LevelPicker             the counting-level rows shown in Settings
+  LetterStagePicker       the Letters-internal stage rows (Practice / Sound Match) shown in Settings
   lottieWasmSetup.web      pins the Lottie WASM engine to a local asset (web only)
   lottieWasmSetup          no-op on native (native uses platform Lottie engines)
   /letters
-    LettersHome           Letters activity screen: Stage A recognition + sound (see Roadmap)
-    LetterCard            the tappable letter glyph + revealed picture cue
+    LettersHome           Letters activity root: shared chrome + persisted stage choice (see Roadmap)
+    PracticeScreen         Stage A: recognition + sound
+    LetterCard             the tappable letter glyph + revealed picture cue (Stage A)
+    SoundMatchScreen       Stage B: hear a sound, tap the matching letter
+    SoundMatchTile         one Stage B option tile (idle / correct / exploring)
 /hooks
   useCounting             round/level/subject/peek state + tap-order counting (pure, tested)
   useSound                wraps expo-audio + expo-speech + expo-haptics
   useLetters              Letters vertical progression state (pure, tested) — see Roadmap
   usePhonics              wraps expo-audio for letter/word phoneme playback — see Roadmap
-  useLetterIntroduction   Stage A rotation/session logic for LettersHome (pure, tested) — see Roadmap
+  useLetterIntroduction   Stage A rotation/session logic (pure, tested) — see Roadmap
+  useSoundMatch           Stage B round/feedback logic (pure, tested) — see Roadmap
 /constants
   theme                   palette tokens, spacing scale, type scale, withOpacity()
   levels                  the four-level developmental scaffold (see Roadmap)
   subjects                the four counting subjects (see Roadmap)
   activities              the app's top-level activities: Counting, Letters
+  letterStages            the Letters activity's internal stages: Practice, Sound Match
   letters.en              English phonics curriculum (SATPIN order, picture cues, CVC words)
 App.tsx                   Root (persisted activity choice) -> Game (Counting) or LettersHome
 ```
@@ -261,7 +267,8 @@ answers, and a staged build plan (L0–L4). It reuses the Counting app's theme,
 fonts, motion tokens, and offline-first privacy model — nothing new was added
 to the tech stack.
 
-**Stage L0 — Foundation (done):**
+**Stage L0 — Foundation (done):** the data model, the audio-playback hook,
+and the Letters entry point in the Settings activity picker.
 
 - `constants/letters.en.ts` — the English curriculum: SATPIN-ordered letter
   sets, per-letter picture cues (`s` → 🐍 snake), and CVC word lists,
@@ -272,18 +279,49 @@ to the tech stack.
   way `useCounting` persists its own state.
 - `hooks/usePhonics.ts` — letter/word audio playback via `expo-audio`,
   deliberately *not* TTS (`expo-speech`), since synthesized speech
-  mispronounces isolated phonemes (brief §5). Every clip currently points at
-  one honest, non-speech placeholder blip tone — see
-  `assets/audio/phonics/README.md` for exactly what real recordings are
-  needed before this vertical's Stage A is actually done.
-- `components/letters/LettersHome.tsx` + `constants/activities.ts` — a real
-  entry point: an "Activity" picker in Settings switches between Counting and
-  Letters, and Letters shows the real current SATPIN letter (glyph + picture
-  cue) as a "Coming soon!" preview. No tap interaction yet — that's Stage L1.
+  mispronounces isolated phonemes (brief §5).
+
+**Stage L1 — Recognition + sound (done):** `components/letters/
+PracticeScreen.tsx` + `hooks/useLetterIntroduction.ts`. One letter at a time
+in SATPIN order; tapping it plays its sound and reveals its picture cue; a
+calm "Next" control advances, revisiting every already-learned letter before
+introducing a new one. Pure exposure — no quiz, no score.
+
+Every letter and word clip is real, distinct audio — not a recording, not
+runtime TTS — generated locally and offline by `scripts/
+generate-phonics-audio.mjs` (eSpeak NG, run once at dev time; never an app
+dependency, never imported by app code, never called at runtime). See
+`assets/audio/phonics/README.md` for the full phoneme table and known
+trouble spots (voiced stops need a trailing glottal stop to be audible at
+all; short vowels get mangled into the wrong vowel by default; `r` is a
+genuine eSpeak limitation with no clean fix). A parent's own recorded voice
+remains the intended real answer per the brief — this pipeline is a large,
+honest step up from silence, not the finish line.
+
+**Stage L2 — Sound matching (done):** `components/letters/
+SoundMatchScreen.tsx` + `hooks/useSoundMatch.ts`. The app plays a target
+sound (tap the 🔊 prompt card to hear/replay it — nothing auto-plays without
+a tap, since browsers block audio that isn't a direct response to a user
+gesture), 2–3 already-learned letters are shown, the child taps one:
+
+- **Correct** — the tile gets a bigger celebratory bounce, a sparkle burst
+  (reusing `TapBurst`), a green glow, and a confirmation chime, then the app
+  auto-advances to a new round after a beat.
+- **Not a match** — no fail sound, no score, no red anywhere. The tapped
+  letter gets the *exact same* gentle reaction as an ordinary tap (never a
+  lesser one) and says its own sound, then — after a short pause — the app
+  re-invites by replaying the target sound on the same round with the same
+  options, per the brief's "supportive tutor" pattern (§4).
+
+Reachable via Settings → "Letters mode" (`LetterStagePicker`), which
+`components/letters/LettersHome.tsx` (now the activity's root — it owns the
+persisted stage choice and the shared chrome, delegating the actual screen
+to `PracticeScreen` or `SoundMatchScreen`) wires up alongside the existing
+Counting pickers, reusing the same "optional props, conditionally rendered"
+pattern `SettingsScreen` already used for subject/level.
 
 **Not yet built** (per the brief's own staging, each stage ships and is
-confirmed before the next starts): L1 (Stage A recognition + sound
-screen), L2 (SoundMatch), L3 (WordBuilder blending), L4 (Set 2 + mastery
-tracking). Real phoneme recordings, a Portuguese curriculum layer, more
-letter sets, and tracing/handwriting are all explicitly out of scope until
-requested (brief §9, "Later (separate)").
+confirmed before the next starts): L3 (WordBuilder blending), L4 (Set 2 +
+mastery tracking). Real recorded voice audio, a Portuguese curriculum layer,
+more letter sets, and tracing/handwriting are all explicitly out of scope
+until requested (brief §9, "Later (separate)").

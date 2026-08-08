@@ -42,3 +42,6 @@ consumed generically by engine code, never hardcoded):
   Language-keyed by design — see the file header and
   LETTERS-VERTICAL-BRIEF.md §7 for why the engine (`hooks/useLetters.ts`,
   `hooks/usePhonics.ts`) must never assume English.
+- `letterStages.ts` — the Letters activity's own internal stages (Practice /
+  Sound Match), distinct from `activities.ts` above: this picks a mode
+  *within* Letters, not between top-level activities.

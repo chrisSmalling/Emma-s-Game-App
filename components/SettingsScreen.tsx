@@ -4,9 +4,11 @@ import THEME from '../constants/theme';
 import { LevelId } from '../constants/levels';
 import { SubjectId } from '../constants/subjects';
 import { ActivityId } from '../constants/activities';
+import { LetterStageId } from '../constants/letterStages';
 import LevelPicker from './LevelPicker';
 import SubjectPicker from './SubjectPicker';
 import ActivityPicker from './ActivityPicker';
+import LetterStagePicker from './LetterStagePicker';
 
 type Props = {
   visible: boolean;
@@ -19,6 +21,9 @@ type Props = {
   onSelectLevel?: (id: LevelId) => void;
   subjectId?: SubjectId;
   onSelectSubject?: (id: SubjectId) => void;
+  // Letters-specific — omitted when settings are opened from Counting.
+  letterStageId?: LetterStageId;
+  onSelectLetterStage?: (id: LetterStageId) => void;
   onClose: () => void;
 };
 
@@ -31,9 +36,12 @@ export default function SettingsScreen({
   onSelectLevel,
   subjectId,
   onSelectSubject,
+  letterStageId,
+  onSelectLetterStage,
   onClose,
 }: Props) {
   const showCountingOptions = levelId != null && onSelectLevel != null && subjectId != null && onSelectSubject != null;
+  const showLetterStageOptions = letterStageId != null && onSelectLetterStage != null;
 
   return (
     <Modal visible={visible} animationType="fade" transparent onRequestClose={onClose}>
@@ -53,6 +61,13 @@ export default function SettingsScreen({
                 <SubjectPicker currentSubjectId={subjectId} onSelect={onSelectSubject} />
                 <View style={styles.spacer} />
                 <LevelPicker currentLevelId={levelId} onSelect={onSelectLevel} />
+              </>
+            )}
+
+            {showLetterStageOptions && (
+              <>
+                <View style={styles.spacer} />
+                <LetterStagePicker currentStageId={letterStageId} onSelect={onSelectLetterStage} />
               </>
             )}
 
