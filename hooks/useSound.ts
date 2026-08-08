@@ -40,6 +40,12 @@ export default function useSound() {
 
   async function playPop() {
     try {
+      // Slight pitch/speed variation per tap so consecutive taps don't sound
+      // identical — a small bit of sonic novelty to help hold attention.
+      // shouldCorrectPitch=false lets playbackRate actually shift the pitch
+      // instead of just the speed.
+      pop.shouldCorrectPitch = false;
+      pop.playbackRate = 0.9 + Math.random() * 0.3; // 0.9x–1.2x
       // seekTo is async on native (bridge call) — await it before play() so a
       // rapid re-tap doesn't start playback mid-seek and skip the pop.
       await pop.seekTo(0);

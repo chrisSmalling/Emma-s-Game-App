@@ -1,4 +1,4 @@
-import React, { ReactNode, useEffect } from 'react';
+import React, { ReactNode, useEffect, useState } from 'react';
 import { Pressable, StyleSheet } from 'react-native';
 import Animated, {
   useAnimatedStyle,
@@ -10,6 +10,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import THEME from '../constants/theme';
 import CountBubble from './CountBubble';
+import TapBurst from './TapBurst';
 
 // The props every subject's per-object component (Fish, Shape, ColorBlob,
 // Letter, ...) takes — shared so they don't each redeclare the same shape.
@@ -44,30 +45,52 @@ export default function TappableObject({
   interactive = true,
 }: Props) {
   const scale = useSharedValue(1);
+  const wiggle = useSharedValue(0);
   const bob = useSharedValue(0);
+  const sway = useSharedValue(0);
+  const [burstId, setBurstId] = useState(0);
 
   useEffect(() => {
-    const duration = 1500 + index * 120;
+    const duration = 1400 + index * 120;
     bob.value = withRepeat(
-      withSequence(withTiming(-8, { duration }), withTiming(0, { duration })),
+      withSequence(withTiming(-10, { duration }), withTiming(0, { duration })),
       -1,
       false
     );
-    // bob is a stable shared value ref; only re-run this when the object's
-    // own idle-bob timing offset (index) changes.
+    sway.value = withRepeat(
+      withSequence(withTiming(-4, { duration: duration * 1.3 }), withTiming(4, { duration: duration * 1.3 })),
+      -1,
+      true
+    );
+    // bob/sway are stable shared value refs; only re-run this when the
+    // object's own idle-motion timing offset (index) changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [index]);
 
   function handlePress() {
     scale.value = withSequence(
-      withSpring(1.25, THEME.MOTION.spring),
+      withSpring(1.3, THEME.MOTION.spring),
       withSpring(1, THEME.MOTION.spring)
     );
+    // Alternate wiggle direction per tap so consecutive taps don't play the
+    // exact same motion — a little unpredictability holds attention better
+    // than an identical repeated animation.
+    const direction = burstId % 2 === 0 ? 1 : -1;
+    wiggle.value = withSequence(
+      withTiming(12 * direction, { duration: 90 }),
+      withTiming(-8 * direction, { duration: 130 }),
+      withTiming(0, { duration: 120 })
+    );
+    setBurstId(id => id + 1);
     onPress();
   }
 
   const animatedStyle = useAnimatedStyle(() => ({
-    transform: [{ translateY: bob.value }, { scale: scale.value }],
+    transform: [
+      { translateY: bob.value },
+      { rotate: `${sway.value + wiggle.value}deg` },
+      { scale: scale.value },
+    ],
   }));
 
   const label = counted && order != null ? `${objectLabel}, counted number ${order}` : `${objectLabel}, not yet counted`;
@@ -86,6 +109,7 @@ export default function TappableObject({
       <Animated.View style={[styles.object, animatedStyle, counted && styles.counted]}>
         {children}
         {counted && order != null && <CountBubble order={order} />}
+        {burstId > 0 && <TapBurst key={burstId} />}
       </Animated.View>
     </Pressable>
   );
