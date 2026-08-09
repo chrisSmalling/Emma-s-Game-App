@@ -55,9 +55,25 @@ const WORD_SOURCES: Record<string, ReturnType<typeof require>> = {
   mop: require('../assets/audio/phonics/en/words/mop.wav'),
 };
 
-// Pacing for the Stage C "slow blend" (brief §2 Stage C): a pause between
-// each letter's sound, then a beat before the whole word — placeholder
-// timings, worth re-tuning once real recordings set the actual rhythm.
+// Real recordings of the full "sss... a... t... sat!" cadence (see
+// scripts/process-voice-recordings.mjs) — preferred over the synthesized
+// fallback below whenever a word has one. tap_blend and cat_blend are
+// wired up here (the files exist) but scripts/process-voice-recordings.mjs
+// flagged both as low-confidence splits; constants/wordBuilding.en.ts
+// leaves them out of Stage C's word list until that's resolved, but any
+// other caller of playBlend for those two words gets the recording as-is.
+const BLEND_SOURCES: Record<string, ReturnType<typeof require>> = {
+  sat: require('../assets/audio/phonics/en/words/sat_blend.wav'),
+  pin: require('../assets/audio/phonics/en/words/pin_blend.wav'),
+  tap: require('../assets/audio/phonics/en/words/tap_blend.wav'),
+  nap: require('../assets/audio/phonics/en/words/nap_blend.wav'),
+  dog: require('../assets/audio/phonics/en/words/dog_blend.wav'),
+  cat: require('../assets/audio/phonics/en/words/cat_blend.wav'),
+};
+
+// Pacing for the synthesized blend fallback (brief §2 Stage C) — a word
+// with no BLEND_SOURCES entry falls back to sounding out each letter with a
+// pause, then the whole word. Placeholder timings.
 const BLEND_LETTER_PAUSE_MS = 550;
 const BLEND_TO_WORD_PAUSE_MS = 350;
 
@@ -73,6 +89,7 @@ function wait(ms: number) {
 export default function usePhonics() {
   const letterPlayers = useRef<Record<string, AudioPlayer>>({});
   const wordPlayers = useRef<Record<string, AudioPlayer>>({});
+  const blendPlayers = useRef<Record<string, AudioPlayer>>({});
 
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
@@ -91,9 +108,20 @@ export default function usePhonics() {
         // ignore
       }
     }
+    for (const [word, source] of Object.entries(BLEND_SOURCES)) {
+      try {
+        blendPlayers.current[word] = createAudioPlayer(source);
+      } catch {
+        // ignore
+      }
+    }
 
     return () => {
-      [...Object.values(letterPlayers.current), ...Object.values(wordPlayers.current)].forEach(player => {
+      [
+        ...Object.values(letterPlayers.current),
+        ...Object.values(wordPlayers.current),
+        ...Object.values(blendPlayers.current),
+      ].forEach(player => {
         try {
           player.remove();
         } catch {
@@ -102,6 +130,7 @@ export default function usePhonics() {
       });
       letterPlayers.current = {};
       wordPlayers.current = {};
+      blendPlayers.current = {};
     };
   }, []);
 
@@ -126,9 +155,13 @@ export default function usePhonics() {
     return playFrom(wordPlayers, word);
   }
 
-  // The core Stage C moment (brief §2 Stage C): each letter's sound in
-  // order, then the whole word — "/sss/-/a/-/t/… sat!"
+  // The core Stage C moment (brief §2 Stage C): "/sss/-/a/-/t/… sat!" —
+  // the real recording when this word has one (see BLEND_SOURCES above),
+  // otherwise synthesized from the individual letter sounds + whole word.
   async function playBlend(letterIds: string[], word: string) {
+    if (blendPlayers.current[word]) {
+      return playFrom(blendPlayers, word);
+    }
     for (const id of letterIds) {
       await playSound(id);
       await wait(BLEND_LETTER_PAUSE_MS);

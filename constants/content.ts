@@ -21,3 +21,6 @@ export const LETTERS_COPLAY_HINT = 'Grown-up: say the sound together!';
 
 // Same co-play pattern, for the Letters vertical's Stage B (sound-matching) screen.
 export const SOUND_MATCH_COPLAY_HINT = 'Grown-up: help her listen for the sound!';
+
+// Same co-play pattern, for the Letters vertical's Stage C (word-building) screen.
+export const WORD_BUILD_COPLAY_HINT = 'Grown-up: cheer her on as she builds the word!';

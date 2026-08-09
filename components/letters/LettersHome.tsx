@@ -9,6 +9,7 @@ import ParentGate from '../ParentGate';
 import SettingsScreen from '../SettingsScreen';
 import PracticeScreen from './PracticeScreen';
 import SoundMatchScreen from './SoundMatchScreen';
+import WordBuildScreen from './WordBuildScreen';
 
 const STORAGE_KEY_STAGE = 'littleLearner.letters.en.stageId';
 
@@ -19,7 +20,7 @@ type Props = {
 
 // Root of the Letters activity: owns which internal stage is active
 // (LETTERS-VERTICAL-BRIEF.md §2 — Stage A "Practice" is built as L1, Stage B
-// "Sound Match" as L2; Stage C "Word Building" isn't built yet) and the
+// "Sound Match" as L2, Stage C "Word Building" as L3) and the
 // chrome shared across all of them (title, parent gate, settings). Each
 // stage is a fully self-contained screen (its own OceanBackground, scene,
 // bottom band) — this component only switches between them.
@@ -56,7 +57,7 @@ export default function LettersHome({ activityId, onSelectActivity }: Props) {
         <ParentGate onUnlock={() => setSettingsVisible(true)} />
       </View>
 
-      {stageId === 'soundMatch' ? <SoundMatchScreen /> : <PracticeScreen />}
+      {stageId === 'soundMatch' ? <SoundMatchScreen /> : stageId === 'wordBuild' ? <WordBuildScreen /> : <PracticeScreen />}
 
       <SettingsScreen
         visible={settingsVisible}
