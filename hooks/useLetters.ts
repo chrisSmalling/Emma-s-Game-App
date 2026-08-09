@@ -1,20 +1,20 @@
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LETTERS_EN, { LetterId, LettersContent } from '../constants/letters.en';
-import { getProfile } from '../constants/profile';
+import { getProfile, LanguageCode } from '../constants/profile';
 
 const STORAGE_KEY_LEARNED = 'littleLearner.letters.en.learnedLetterIds';
 
 // Letters content keyed by profile.activeLanguage (constants/profile.ts —
 // Seam A). Only 'en' exists today; a future letters.pt.ts adds a 'pt' entry
 // here and nothing else in this file changes.
-const CONTENT_BY_LANGUAGE: Record<string, LettersContent> = {
+const CONTENT_BY_LANGUAGE: Partial<Record<LanguageCode, LettersContent>> = {
   en: LETTERS_EN,
 };
 
 // Falls back to English if the active language has no content yet, so the
 // app stays usable while other languages are still being built out.
-export function contentForLanguage(languageCode: string): LettersContent {
+export function contentForLanguage(languageCode: LanguageCode): LettersContent {
   return CONTENT_BY_LANGUAGE[languageCode] ?? LETTERS_EN;
 }
 

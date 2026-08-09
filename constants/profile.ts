@@ -11,12 +11,27 @@
 // DEFAULT_PROFILE with a real, editable, persisted profile without any
 // caller changing.
 
-// Widens to 'en' | 'pt' (etc.) once a second language's content exists —
-// see constants/letters.en.ts and constants/wordBuilding.en.ts.
-export type LanguageCode = 'en';
+// Both defined now; only 'en' CONTENT exists (see constants/letters.en.ts
+// and constants/wordBuilding.en.ts) — a 'pt' value type-checks everywhere
+// already, but every content lookup falls back to English until a
+// constants/letters.pt.ts (etc.) is actually written.
+export type LanguageCode = 'en' | 'pt';
 
 export type Profile = {
   childName: string;
+  // The language spoken around the child day-to-day, vs. the language being
+  // taught as "new" to them. Both users of this app get BOTH languages
+  // taught — home/learning let the app lean appropriately later (tone,
+  // framing, which language explains the other), they do NOT gate content
+  // yet. Emma's reality: home 'en', learning 'pt'. The sellable version
+  // flips this for a Brazilian customer (home 'pt', learning 'en') — same
+  // fields, same engine, no rewrite.
+  homeLanguage: LanguageCode;
+  learningLanguage: LanguageCode;
+  // Which language the UI/content is showing right now. Independent of
+  // home/learning (a lesson could show learningLanguage content, or a menu
+  // could show homeLanguage chrome) — today it's always 'en' because that's
+  // the only language with real content.
   activeLanguage: LanguageCode;
   // Which recorded voice set plays the phonics audio (see
   // hooks/usePhonics.ts) — today there's only ever been one voice, so
@@ -27,6 +42,8 @@ export type Profile = {
 
 export const DEFAULT_PROFILE: Profile = {
   childName: 'Emma',
+  homeLanguage: 'en',
+  learningLanguage: 'pt',
   activeLanguage: 'en',
   activeVoiceId: 'parent1',
 };

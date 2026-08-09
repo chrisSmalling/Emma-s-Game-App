@@ -3,7 +3,7 @@ import * as Haptics from 'expo-haptics';
 import usePhonics from './usePhonics';
 import LETTERS_EN, { LetterId, LettersContent } from '../constants/letters.en';
 import WORD_BUILDING_EN, { WordBuildingContent } from '../constants/wordBuilding.en';
-import { getProfile } from '../constants/profile';
+import { getProfile, LanguageCode } from '../constants/profile';
 
 // Stage L3 (word building / blending): a picture + empty slots show the
 // goal, the word's own letters appear scrambled as tappable tiles, and the
@@ -34,20 +34,20 @@ export function scrambleLetters(letters: LetterId[], random: () => number = Math
 // (constants/profile.ts — Seam A). Only 'en' exists today; a future
 // wordBuilding.pt.ts / letters.pt.ts pair adds a 'pt' entry to both maps
 // and nothing else in this file changes.
-const WORD_CONTENT_BY_LANGUAGE: Record<string, WordBuildingContent> = {
+const WORD_CONTENT_BY_LANGUAGE: Partial<Record<LanguageCode, WordBuildingContent>> = {
   en: WORD_BUILDING_EN,
 };
-const LETTERS_CONTENT_BY_LANGUAGE: Record<string, LettersContent> = {
+const LETTERS_CONTENT_BY_LANGUAGE: Partial<Record<LanguageCode, LettersContent>> = {
   en: LETTERS_EN,
 };
 
 // Falls back to English if the active language has no content yet, so the
 // app stays usable while other languages are still being built out.
-export function wordContentForLanguage(languageCode: string): WordBuildingContent {
+export function wordContentForLanguage(languageCode: LanguageCode): WordBuildingContent {
   return WORD_CONTENT_BY_LANGUAGE[languageCode] ?? WORD_BUILDING_EN;
 }
 
-function lettersContentForLanguage(languageCode: string): LettersContent {
+function lettersContentForLanguage(languageCode: LanguageCode): LettersContent {
   return LETTERS_CONTENT_BY_LANGUAGE[languageCode] ?? LETTERS_EN;
 }
 
