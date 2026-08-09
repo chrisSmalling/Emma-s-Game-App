@@ -1,8 +1,22 @@
 import { useCallback, useEffect, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import LETTERS_EN, { LetterId, LettersContent } from '../constants/letters.en';
+import { getProfile } from '../constants/profile';
 
 const STORAGE_KEY_LEARNED = 'littleLearner.letters.en.learnedLetterIds';
+
+// Letters content keyed by profile.activeLanguage (constants/profile.ts —
+// Seam A). Only 'en' exists today; a future letters.pt.ts adds a 'pt' entry
+// here and nothing else in this file changes.
+const CONTENT_BY_LANGUAGE: Record<string, LettersContent> = {
+  en: LETTERS_EN,
+};
+
+// Falls back to English if the active language has no content yet, so the
+// app stays usable while other languages are still being built out.
+export function contentForLanguage(languageCode: string): LettersContent {
+  return CONTENT_BY_LANGUAGE[languageCode] ?? LETTERS_EN;
+}
 
 // The engine is language-agnostic (brief §7): every function here takes the
 // LettersContent as data and never assumes English or SATPIN specifically —
@@ -40,7 +54,7 @@ export function playableWords(content: LettersContent, learned: LetterId[]) {
 // setState updater (the read-then-decide happens in the callback body,
 // against the closed-over current state, same pattern as useCounting's
 // tapItem/persistHighest).
-export default function useLetters(content: LettersContent = LETTERS_EN) {
+export default function useLetters(content: LettersContent = contentForLanguage(getProfile().activeLanguage)) {
   const [learnedIds, setLearnedIds] = useState<LetterId[]>([]);
 
   useEffect(() => {

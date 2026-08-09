@@ -1,6 +1,7 @@
 import { act, renderHook } from '@testing-library/react-native';
-import useWordBuilding, { scrambleLetters } from './useWordBuilding';
-import { WordBuildingContent } from '../constants/wordBuilding.en';
+import useWordBuilding, { scrambleLetters, wordContentForLanguage } from './useWordBuilding';
+import WORD_BUILDING_EN, { WordBuildingContent } from '../constants/wordBuilding.en';
+import * as profileModule from '../constants/profile';
 
 const mockPlaySound = jest.fn();
 const mockPlayWord = jest.fn();
@@ -47,6 +48,16 @@ describe('scrambleLetters', () => {
   });
 });
 
+describe('wordContentForLanguage', () => {
+  it('selects the English content for "en"', () => {
+    expect(wordContentForLanguage('en')).toBe(WORD_BUILDING_EN);
+  });
+
+  it('falls back to English for a language with no content yet', () => {
+    expect(wordContentForLanguage('pt')).toBe(WORD_BUILDING_EN);
+  });
+});
+
 describe('useWordBuilding', () => {
   beforeEach(() => {
     mockPlaySound.mockClear();
@@ -70,6 +81,13 @@ describe('useWordBuilding', () => {
     expect(result.current.roundPhase).toBe('building');
     expect(mockPlaySound).not.toHaveBeenCalled();
     expect(mockPlayWord).not.toHaveBeenCalled();
+  });
+
+  it('reads the active language from the profile when picking default content and letters', async () => {
+    const spy = jest.spyOn(profileModule, 'getProfile');
+    await renderHook(() => useWordBuilding(undefined, sequence(0)));
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 
   it('playPrompt plays the current word', async () => {

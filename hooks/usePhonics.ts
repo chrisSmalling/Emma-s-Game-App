@@ -1,6 +1,15 @@
 import { useEffect, useRef } from 'react';
 import { AudioPlayer, createAudioPlayer, setAudioModeAsync } from 'expo-audio';
 
+// TODO(Seam A — constants/profile.ts): profile.activeVoiceId isn't read
+// here yet. Today there's only ever one recorded voice, so there's nothing
+// to select between; wiring it in is not trivial — Metro requires every
+// require() path below to be a static literal, so a real multi-voice
+// structure needs a voice-keyed asset layout (e.g.
+// assets/audio/phonics/en/<voiceId>/sounds/<id>.wav) before this can route
+// on activeVoiceId. Left undone deliberately rather than restructuring
+// audio as a side effect of this seam.
+
 // Generated locally by scripts/generate-phonics-audio.mjs (eSpeak NG, run
 // once at build/dev time — never at runtime, never imported by app code).
 // See assets/audio/phonics/README.md for the phoneme choice behind each

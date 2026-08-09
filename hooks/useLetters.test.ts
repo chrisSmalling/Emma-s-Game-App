@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import useLetters, {
+  contentForLanguage,
   flattenSequence,
   learnedLetters,
   nextLetterToIntroduce,
@@ -8,6 +9,7 @@ import useLetters, {
   setIdForLetter,
 } from './useLetters';
 import LETTERS_EN, { LettersContent } from '../constants/letters.en';
+import * as profileModule from '../constants/profile';
 
 // A tiny fake content fixture for isolated, fast progression tests — the
 // engine must not assume English/SATPIN, so exercising it against a
@@ -56,6 +58,16 @@ describe('pure sequence helpers', () => {
   });
 });
 
+describe('contentForLanguage', () => {
+  it('selects the English content for "en"', () => {
+    expect(contentForLanguage('en')).toBe(LETTERS_EN);
+  });
+
+  it('falls back to English for a language with no content yet', () => {
+    expect(contentForLanguage('pt')).toBe(LETTERS_EN);
+  });
+});
+
 describe('useLetters', () => {
   beforeEach(async () => {
     await AsyncStorage.clear();
@@ -72,6 +84,13 @@ describe('useLetters', () => {
     const { result } = await renderHook(() => useLetters());
     expect(result.current.content).toBe(LETTERS_EN);
     expect(result.current.currentLetterId).toBe('s');
+  });
+
+  it('reads the active language from the profile when picking default content', async () => {
+    const spy = jest.spyOn(profileModule, 'getProfile');
+    await renderHook(() => useLetters());
+    expect(spy).toHaveBeenCalled();
+    spy.mockRestore();
   });
 
   it('markLearned advances currentLetterId to the next in sequence', async () => {

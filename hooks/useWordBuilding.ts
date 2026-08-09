@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import * as Haptics from 'expo-haptics';
 import usePhonics from './usePhonics';
-import LETTERS_EN, { LetterId } from '../constants/letters.en';
+import LETTERS_EN, { LetterId, LettersContent } from '../constants/letters.en';
 import WORD_BUILDING_EN, { WordBuildingContent } from '../constants/wordBuilding.en';
+import { getProfile } from '../constants/profile';
 
 // Stage L3 (word building / blending): a picture + empty slots show the
 // goal, the word's own letters appear scrambled as tappable tiles, and the
@@ -29,6 +30,27 @@ export function scrambleLetters(letters: LetterId[], random: () => number = Math
   return shuffle(letters, random);
 }
 
+// Word-building and letter-glyph content keyed by profile.activeLanguage
+// (constants/profile.ts — Seam A). Only 'en' exists today; a future
+// wordBuilding.pt.ts / letters.pt.ts pair adds a 'pt' entry to both maps
+// and nothing else in this file changes.
+const WORD_CONTENT_BY_LANGUAGE: Record<string, WordBuildingContent> = {
+  en: WORD_BUILDING_EN,
+};
+const LETTERS_CONTENT_BY_LANGUAGE: Record<string, LettersContent> = {
+  en: LETTERS_EN,
+};
+
+// Falls back to English if the active language has no content yet, so the
+// app stays usable while other languages are still being built out.
+export function wordContentForLanguage(languageCode: string): WordBuildingContent {
+  return WORD_CONTENT_BY_LANGUAGE[languageCode] ?? WORD_BUILDING_EN;
+}
+
+function lettersContentForLanguage(languageCode: string): LettersContent {
+  return LETTERS_CONTENT_BY_LANGUAGE[languageCode] ?? LETTERS_EN;
+}
+
 const TILE_SETTLE_MS = 500;
 const EXPLORE_MS = 600;
 const BEAT_BEFORE_BLEND_MS = 300;
@@ -38,9 +60,13 @@ function wait(ms: number) {
   return new Promise<void>(resolve => setTimeout(resolve, ms));
 }
 
-export default function useWordBuilding(content: WordBuildingContent = WORD_BUILDING_EN, random: () => number = Math.random) {
+export default function useWordBuilding(
+  content: WordBuildingContent = wordContentForLanguage(getProfile().activeLanguage),
+  random: () => number = Math.random
+) {
   const { playSound, playWord, playBlend } = usePhonics();
   const words = content.words;
+  const letters = lettersContentForLanguage(getProfile().activeLanguage).letters;
 
   const [wordIndex, setWordIndex] = useState(0);
   const [scrambled, setScrambled] = useState<LetterId[]>(() => scrambleLetters(words[0]?.letters ?? [], random));
@@ -103,7 +129,7 @@ export default function useWordBuilding(content: WordBuildingContent = WORD_BUIL
   }
 
   return {
-    letters: LETTERS_EN.letters,
+    letters,
     word,
     scrambled,
     placedCount,
