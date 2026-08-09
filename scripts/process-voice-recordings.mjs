@@ -9,11 +9,26 @@
 // Debian/Ubuntu) — a one-time local dev tool, same posture as eSpeak NG.
 //
 // Input (not committed — see recordings/README if you add one): iPhone
-// Voice Memos takes, each a single recording of multiple items spoken once,
-// separated by ~2s silent gaps, in a fixed known order:
+// Voice Memos takes, each a single recording of multiple items spoken once
+// in a fixed known order, with pauses between items:
 //   recordings/letters.m4a — 20 letter SOUNDS, order: LETTER_ORDER below
 //   recordings/words.m4a   — 15 WORDS, order: WORD_ORDER below
-//   recordings/blend.m4a   — 6 blend demos (sounds-then-word), order: BLEND_ORDER below
+//   recordings/blend.m4a   — 6 blend demos (each itself multi-part: the
+//                            sounds spoken slowly, then the whole word, e.g.
+//                            "sss... a... t... sat!"), order: BLEND_ORDER
+//
+// Splitting strategy: real recordings don't have a clean, uniform pause
+// length — the silence between two different items and the incidental
+// breath/mouth-noise pauses *within* one item overlap in duration. So
+// instead of "any pause over X seconds is a boundary", this finds every
+// fine-grained pause in a take and keeps only the (expectedCount - 1)
+// *longest* ones as real item boundaries — everything else (including,
+// deliberately, the internal pauses inside a blend demo's "sound... sound...
+// word" cadence) stays fused into one clip. This only works if the speaker
+// paused at least a little longer between items than within one — true for
+// words/blend in practice, NOT reliably true for letters (see the warning
+// the script prints if a letter's clip looks like it merged multiple
+// letters — those need a manual re-listen or a re-recording).
 //
 // Output: overwrites assets/audio/phonics/en/sounds/<letter>.wav and
 // assets/audio/phonics/en/words/<word>.wav, and writes
@@ -46,18 +61,22 @@ const WORD_ORDER = [
 ];
 const BLEND_ORDER = ['sat', 'pin', 'tap', 'nap', 'dog', 'cat'];
 
-// Silence-detection tuning: these are isolated single items with genuine
-// silence between them (not natural speech pauses), so the threshold can be
-// fairly generous without risking a false mid-word split. If a take's
-// segment count comes out wrong, this is the first thing to adjust — a
-// louder recording (typically fine, from the takes not from silence)
-// suggests raising SILENCE_NOISE_FLOOR_DB (less negative); background noise
-// preventing detection of a real gap suggests lowering it (more negative).
-const SILENCE_NOISE_FLOOR_DB = -35;
-const SILENCE_MIN_DURATION_SEC = 0.6;
-// Segments shorter than this are silence-detection artifacts (a sliver of
-// room tone at the very start/end of the take), not a real spoken item.
-const MIN_SEGMENT_DURATION_SEC = 0.15;
+const NOISE_FLOOR_DB = -35;
+// Low threshold so we catch every real pause, including short ones inside
+// a single item — the boundary-selection step below is what decides which
+// pauses actually separate items.
+const FINE_SILENCE_MIN_DURATION_SEC = 0.2;
+// Fine "segments" shorter than this are mouth-click/pop artifacts, not real
+// spoken content — dropped before boundary selection so they don't distort
+// the surrounding pause durations (removing a tiny fake segment correctly
+// merges the silence on either side of it into one real pause).
+const TINY_SEGMENT_DROP_SEC = 0.15;
+// A group's duration is flagged as suspicious relative to the take's own
+// median group duration — a low-confidence hint to spot-check, not a hard
+// error (the algorithm always produces exactly the expected count, so a
+// wrong split shows up as a duration outlier, not a count mismatch).
+const OUTLIER_HIGH_RATIO = 1.8;
+const OUTLIER_LOW_RATIO = 0.35;
 
 const TAKES = [
   { name: 'letters', file: 'letters.m4a', order: LETTER_ORDER, label: 'letter sound' },
@@ -98,7 +117,7 @@ function getDuration(filePath) {
 function detectSilenceIntervals(filePath, totalDuration) {
   const result = spawnSync('ffmpeg', [
     '-i', filePath,
-    '-af', `silencedetect=noise=${SILENCE_NOISE_FLOOR_DB}dB:d=${SILENCE_MIN_DURATION_SEC}`,
+    '-af', `silencedetect=noise=${NOISE_FLOOR_DB}dB:d=${FINE_SILENCE_MIN_DURATION_SEC}`,
     '-f', 'null', '-',
   ], { encoding: 'utf8' });
   const stderr = result.stderr || '';
@@ -115,8 +134,9 @@ function detectSilenceIntervals(filePath, totalDuration) {
   return intervals;
 }
 
-// The spoken segments are the complement of the silence intervals.
-function computeSpokenSegments(silenceIntervals, totalDuration) {
+// The fine spoken segments are the complement of the silence intervals,
+// with mouth-click/pop artifacts dropped (see TINY_SEGMENT_DROP_SEC).
+function computeFineSegments(silenceIntervals, totalDuration) {
   const segments = [];
   let cursor = 0;
   for (const { start, end } of silenceIntervals) {
@@ -124,13 +144,42 @@ function computeSpokenSegments(silenceIntervals, totalDuration) {
     cursor = Math.max(cursor, end);
   }
   if (cursor < totalDuration) segments.push({ start: cursor, end: totalDuration });
-  return segments.filter(seg => seg.end - seg.start >= MIN_SEGMENT_DURATION_SEC);
+  return segments.filter(seg => seg.end - seg.start >= TINY_SEGMENT_DROP_SEC);
 }
 
-// Extracts one segment, trims any residual edge silence within it,
-// lightly normalizes loudness, and standardizes format/sample rate.
+// Groups fine segments into exactly `expectedCount` items by keeping only
+// the (expectedCount - 1) longest pauses between them as real boundaries.
+// Everything fused within a group (including shorter internal pauses)
+// becomes one continuous output clip.
+function groupByTopGaps(fineSegments, expectedCount) {
+  if (fineSegments.length < expectedCount) return null;
+
+  const gaps = [];
+  for (let i = 0; i < fineSegments.length - 1; i++) {
+    gaps.push({ index: i, duration: fineSegments[i + 1].start - fineSegments[i].end });
+  }
+  const boundaryIndices = new Set(
+    [...gaps].sort((a, b) => b.duration - a.duration).slice(0, expectedCount - 1).map(g => g.index)
+  );
+
+  const groups = [];
+  let groupStart = fineSegments[0].start;
+  for (let i = 0; i < fineSegments.length; i++) {
+    if (boundaryIndices.has(i)) {
+      groups.push({ start: groupStart, end: fineSegments[i].end });
+      groupStart = fineSegments[i + 1].start;
+    }
+  }
+  groups.push({ start: groupStart, end: fineSegments[fineSegments.length - 1].end });
+  return groups;
+}
+
+// Extracts one group, trims any residual edge silence, lightly normalizes
+// loudness, and standardizes format/sample rate. Internal pauses within the
+// group (e.g. a blend demo's "sound... sound... word" cadence) are left
+// untouched — only the outer edges are trimmed.
 function extractSegment(inputPath, segment, outPath) {
-  const thresh = dbToLinear(SILENCE_NOISE_FLOOR_DB);
+  const thresh = dbToLinear(NOISE_FLOOR_DB);
   const filters = [
     `silenceremove=start_periods=1:start_duration=0:start_threshold=${thresh}:detection=peak`,
     `silenceremove=stop_periods=1:stop_duration=0:stop_threshold=${thresh}:detection=peak`,
@@ -158,14 +207,40 @@ function analyzeTake(take) {
 
   const totalDuration = getDuration(filePath);
   const silenceIntervals = detectSilenceIntervals(filePath, totalDuration);
-  const segments = computeSpokenSegments(silenceIntervals, totalDuration);
+  const fineSegments = computeFineSegments(silenceIntervals, totalDuration);
+  const groups = groupByTopGaps(fineSegments, take.order.length);
 
-  return { take, filePath, totalDuration, segments };
+  if (!groups) {
+    return {
+      take,
+      error: `only found ${fineSegments.length} distinct sound(s), need at least ${take.order.length}`,
+    };
+  }
+
+  return { take, filePath, groups };
 }
 
-function formatSegments(segments) {
-  return segments
-    .map((seg, i) => `    [${i}] ${seg.start.toFixed(2)}s - ${seg.end.toFixed(2)}s (${(seg.end - seg.start).toFixed(2)}s)`)
+function median(nums) {
+  const sorted = [...nums].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+}
+
+function formatGroups(groups, itemLabels) {
+  const durations = groups.map(g => g.end - g.start);
+  const med = median(durations);
+  return groups
+    .map((g, i) => {
+      const dur = g.end - g.start;
+      const ratio = med > 0 ? dur / med : 1;
+      const flag = ratio >= OUTLIER_HIGH_RATIO
+        ? '  ⚠ SUSPICIOUSLY LONG — may contain more than one item'
+        : ratio <= OUTLIER_LOW_RATIO
+          ? '  ⚠ SUSPICIOUSLY SHORT — may be a fragment'
+          : '';
+      const label = itemLabels ? ` "${itemLabels[i]}"` : '';
+      return `    [${i}]${label} ${g.start.toFixed(2)}s - ${g.end.toFixed(2)}s (${dur.toFixed(2)}s)${flag}`;
+    })
     .join('\n');
 }
 
@@ -184,39 +259,35 @@ function main() {
   console.log('Analyzing takes...\n');
   const analyses = TAKES.map(analyzeTake);
 
-  let anyProblem = false;
+  let anyFatal = false;
   for (const analysis of analyses) {
     const { take } = analysis;
     if (analysis.error) {
       console.error(`✗ ${take.file}: ${analysis.error}`);
-      anyProblem = true;
+      anyFatal = true;
       continue;
     }
-    const found = analysis.segments.length;
-    const expected = take.order.length;
-    const ok = found === expected;
-    console.log(`${ok ? '✓' : '✗'} ${take.file}: found ${found} segment(s), expected ${expected} ${take.label}(s)`);
-    console.log(formatSegments(analysis.segments));
+    console.log(`✓ ${take.file}: split into ${analysis.groups.length} ${take.label}(s) (expected ${take.order.length})`);
+    console.log(formatGroups(analysis.groups, take.order));
     console.log('');
-    if (!ok) anyProblem = true;
   }
 
-  if (anyProblem) {
+  if (anyFatal) {
     console.error(
-      'One or more takes did not yield the expected segment count — stopping\n' +
-        'WITHOUT writing any output files (a wrong count means every item after\n' +
-        'the error would be mislabeled). Options:\n' +
-        '  - Re-record the take so every gap is a clean ~2s silence.\n' +
-        `  - Adjust SILENCE_NOISE_FLOOR_DB (currently ${SILENCE_NOISE_FLOOR_DB}dB) or\n` +
-        `    SILENCE_MIN_DURATION_SEC (currently ${SILENCE_MIN_DURATION_SEC}s) at the top of this\n` +
-        '    script and re-run — the segment list above shows exactly where the\n' +
-        '    split went wrong (a suspiciously short/long segment, or two segments\n' +
-        '    that should have been one).'
+      'One or more takes could not be split at all — stopping WITHOUT writing\n' +
+        'any output files. Re-record the take(s) listed above.'
     );
     process.exit(1);
   }
 
-  console.log('All three takes matched their expected counts. Writing output files...\n');
+  console.log(
+    'Note: item counts above are always exact by construction (we know how many\n' +
+      'items each take should contain). Any ⚠ warnings above are the real signal —\n' +
+      'they flag likely-wrong boundaries. Spot-check those with afplay/similar\n' +
+      'before trusting the rest.\n'
+  );
+
+  console.log('Writing output files...\n');
 
   mkdirSync(SOUNDS_DIR, { recursive: true });
   mkdirSync(WORDS_DIR, { recursive: true });
@@ -229,19 +300,19 @@ function main() {
 
   LETTER_ORDER.forEach((id, i) => {
     const outPath = path.join(SOUNDS_DIR, `${id}.wav`);
-    extractSegment(letters.filePath, letters.segments[i], outPath);
+    extractSegment(letters.filePath, letters.groups[i], outPath);
     written.push(outPath);
   });
 
   WORD_ORDER.forEach((word, i) => {
     const outPath = path.join(WORDS_DIR, `${word}.wav`);
-    extractSegment(words.filePath, words.segments[i], outPath);
+    extractSegment(words.filePath, words.groups[i], outPath);
     written.push(outPath);
   });
 
   BLEND_ORDER.forEach((word, i) => {
     const outPath = path.join(WORDS_DIR, `${word}_blend.wav`);
-    extractSegment(blend.filePath, blend.segments[i], outPath);
+    extractSegment(blend.filePath, blend.groups[i], outPath);
     written.push(outPath);
   });
 
