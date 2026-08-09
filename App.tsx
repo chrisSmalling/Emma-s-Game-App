@@ -17,6 +17,7 @@ import SessionComplete from './components/SessionComplete';
 import ParentGate from './components/ParentGate';
 import SettingsScreen from './components/SettingsScreen';
 import LettersHome from './components/letters/LettersHome';
+import BennyPondScreen from './components/benny/BennyPondScreen';
 import THEME from './constants/theme';
 import { bridgePromptForRound, COPLAY_HINT } from './constants/content';
 import { nounForCount } from './constants/subjects';
@@ -214,6 +215,9 @@ function Root() {
   // audio players — from ever mounting while the other activity is active.
   if (activityId === 'letters') {
     return <LettersHome activityId={activityId} onSelectActivity={selectActivity} />;
+  }
+  if (activityId === 'benny') {
+    return <BennyPondScreen activityId={activityId} onSelectActivity={selectActivity} />;
   }
   return <Game activityId={activityId} onSelectActivity={selectActivity} />;
 }

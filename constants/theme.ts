@@ -9,6 +9,18 @@ export const COLORS = {
   celebration: '#FFD34E',
   accent: '#FF8A5B',
   fish: ['#FF9F43', '#FF6B9D', '#FFD34E'] as const,
+
+  // Benny's forest world (the character-first slice) — warm and calm,
+  // deliberately distinct from the ocean's cool blues so the two worlds
+  // read as different places, same visual language (soft, rounded, Fredoka).
+  forestSky: '#FFE8B8', // gradient top — warm dappled light
+  forestCanopy: '#6FA25E', // gradient mid — leafy green
+  forestDeep: '#2F5233', // gradient bottom — mossy shade
+  forestFloor: '#8B6F47', // warm soil/bark brown
+  forestGlow: '#FFD9A0', // sunbeam / warm highlight
+  bennyFur: '#A9744F', // Benny's fur
+  bennyFurLight: '#D9AE82', // snout/belly/inner-ear fur
+  bennyScarf: '#E8604C', // Benny's scarf
 } as const;
 
 // Apply alpha to a locked palette token instead of hand-writing rgba(...).
