@@ -2,10 +2,14 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import useBennyPond from '../../hooks/useBennyPond';
+import { LoopComponentId } from '../../hooks/useBennyChoreography';
 import THEME from '../../constants/theme';
 import { ActivityId } from '../../constants/activities';
 import ForestBackground from '../ForestBackground';
 import Fish from '../Fish';
+import Shape from '../Shape';
+import ColorBlob from '../ColorBlob';
+import { CountableObjectProps } from '../TappableObject';
 import ParentGate from '../ParentGate';
 import SettingsScreen from '../SettingsScreen';
 import Benny from './Benny';
@@ -15,19 +19,30 @@ type Props = {
   onSelectActivity: (id: ActivityId) => void;
 };
 
-// Benny's Pond — the character-first slice (see the redesign brief:
-// "Emma's App — Benny's First Magical Slice"). One small activity —
-// counting the fish in Benny's pond — carrying everything the flat version
-// lacked: a friend who knows her name, a living world, a warm voice,
-// whole-screen response. All the state lives in useBennyPond; this
-// component is presentation only.
+// Which countable-object visual fills the pond for a given loop's
+// variation (hooks/useBennyChoreography.ts) — Shape/ColorBlob are already-
+// built, already CountableObjectProps-shaped, so "something new floated
+// into the pond" costs nothing beyond swapping which component renders.
+const POND_COMPONENTS: Record<LoopComponentId, React.ComponentType<CountableObjectProps>> = {
+  fish: Fish,
+  shapes: Shape,
+  colors: ColorBlob,
+};
+
+// Benny's Pond — the PERFORMANCE-first redesign (see "Emma's App — Benny's
+// Pond: from task to performance"). Benny performs the count himself first
+// (she watches), invites her in, waits warmly, and either counts along
+// with her taps or cheerfully finishes it himself — always ending on
+// shared delight, then a varied next loop. All the state lives in
+// useBennyPond/useBennyChoreography; this component is presentation only.
 //
 // Deliberately no top chrome band (unlike Game/LettersHome) — a colored bar
 // across a "cozy forest" would immediately undercut the immersive, whole-
 // screen world the brief asks for. The parent gate floats over the scene
 // instead, same control, no chrome.
 export default function BennyPondScreen({ activityId, onSelectActivity }: Props) {
-  const { childName, stage, bennyState, items, advanceFromGreeting, handleFishTap } = useBennyPond();
+  const { childName, greeted, bennyState, beat, variation, items, performCounted, fishInteractive, advanceFromGreeting, handleFishTap } =
+    useBennyPond();
   const [bump, setBump] = useState(0);
   const [settingsVisible, setSettingsVisible] = useState(false);
 
@@ -38,12 +53,18 @@ export default function BennyPondScreen({ activityId, onSelectActivity }: Props)
   // touch responder system means this only fires for taps that don't hit a
   // nested Pressable, so it never double-fires on a fish tap.
   function handleScenePress() {
-    if (stage === 'greeting') {
+    if (!greeted) {
       advanceFromGreeting();
       return;
     }
     setBump(b => b + 1);
   }
+
+  const CountableComponent = POND_COMPONENTS[variation.component];
+  // During 'perform', Benny is demonstrating — fish glow/pop as HE counts
+  // them (performCounted), not the real round, so it stays fresh for her.
+  // Every other beat shows the real round.
+  const usingPerformOverlay = beat === 'perform';
 
   return (
     <SafeAreaView style={styles.container} edges={['top', 'bottom']}>
@@ -53,25 +74,43 @@ export default function BennyPondScreen({ activityId, onSelectActivity }: Props)
         <View style={styles.pond} pointerEvents="none" />
 
         <View style={styles.pondRow}>
-          {items.map((it, i) => (
-            <Fish key={it.id} index={i} counted={it.counted} order={it.order} onPress={() => handleFishTap(i)} interactive={stage === 'counting'} />
-          ))}
+          {items.map((it, i) => {
+            const counted = usingPerformOverlay ? performCounted.includes(i) : it.counted;
+            const order = usingPerformOverlay ? (performCounted.includes(i) ? performCounted.indexOf(i) + 1 : null) : it.order;
+            return (
+              <CountableComponent
+                key={it.id}
+                index={i}
+                counted={counted}
+                order={order}
+                onPress={() => handleFishTap(i)}
+                interactive={fishInteractive}
+              />
+            );
+          })}
         </View>
 
         <View style={styles.bennySpot} pointerEvents="none">
           <Benny state={bennyState} bump={bump} size={150} />
         </View>
 
-        {stage === 'greeting' && (
-          <View style={styles.greetingCard} pointerEvents="none">
-            <Text style={styles.greetingTitle}>Hi, {childName}! 🐻</Text>
-            <Text style={styles.greetingBody}>Let&rsquo;s count the fish in my pond!</Text>
+        {!greeted && (
+          <View style={styles.speechCard} pointerEvents="none">
+            <Text style={styles.speechTitle}>Hi, {childName}! 🐻</Text>
+            <Text style={styles.speechBody}>Let&rsquo;s count the fish in my pond!</Text>
           </View>
         )}
 
-        {stage === 'celebrating' && (
+        {greeted && (beat === 'invite' || beat === 'wait') && (
+          <View style={styles.speechCard} pointerEvents="none">
+            <Text style={styles.speechTitle}>Can YOU count them? 🐻</Text>
+            <Text style={styles.speechBody}>You try!</Text>
+          </View>
+        )}
+
+        {beat === 'delight' && (
           <View style={styles.celebrationBubble} pointerEvents="none">
-            <Text style={styles.celebrationText}>Yay, {childName}! 🎉</Text>
+            <Text style={styles.celebrationText}>We did it, {childName}! 🎉</Text>
           </View>
         )}
 
@@ -120,7 +159,7 @@ const styles = StyleSheet.create({
   },
   bennySpot: { position: 'absolute', bottom: 0, alignSelf: 'center' },
   gateSpot: { position: 'absolute', top: THEME.SPACING.m, right: THEME.SPACING.m },
-  greetingCard: {
+  speechCard: {
     position: 'absolute',
     top: '18%',
     alignSelf: 'center',
@@ -131,8 +170,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     maxWidth: '84%',
   },
-  greetingTitle: { fontSize: THEME.TYPE.title, fontFamily: THEME.TYPE.fontFamilyBold, color: THEME.COLORS.forestDeep, textAlign: 'center' },
-  greetingBody: {
+  speechTitle: { fontSize: THEME.TYPE.title, fontFamily: THEME.TYPE.fontFamilyBold, color: THEME.COLORS.forestDeep, textAlign: 'center' },
+  speechBody: {
     fontSize: THEME.TYPE.body,
     fontFamily: THEME.TYPE.fontFamily,
     color: THEME.COLORS.forestDeep,

@@ -62,6 +62,13 @@ const SPEED = 0.92;
 // real child's actual bundled audio, not a general per-name TTS system.
 // hooks/useBennyVoice.ts keys the greeting off profile.childName and only
 // plays it for a recognized name — see that file's comment.
+// The PERFORMANCE redesign's line set (see hooks/useBennyChoreography.ts /
+// useBennyPond.ts for how each is used): Benny performs the count himself
+// first (perform_open_* + count_1..5 + perform_wow), invites her in, and
+// either counts along with her taps or — if she doesn't tap in time —
+// cheerfully finishes it himself (together), always landing on a shared
+// celebration (celebrate_1/2). Retired praise_1/praise_2 from the old
+// solo-tap design in favor of the "we" framing below.
 const LINES = {
   greeting: "Hi, Emma! Let's count the fish in my pond!",
   count_1: 'One!',
@@ -69,8 +76,18 @@ const LINES = {
   count_3: 'Three!',
   count_4: 'Four!',
   count_5: 'Five!',
-  praise_1: 'Yay! You did it!',
-  praise_2: 'Great counting!',
+  // Rotating openers for the perform beat — picked by loop, see
+  // useBennyChoreography.ts's VARIATIONS table. Keep these warm and
+  // delighted, not narrated/explanatory — this is a performance, not an
+  // instruction.
+  perform_open_1: "Ooh, fish! Let's count!",
+  perform_open_2: 'Look! More fish swam in! Let\'s count!',
+  perform_open_3: 'Ooh! Something new floated into my pond! Let\'s count!',
+  perform_wow: 'Wow!',
+  invite: 'Can YOU count them? You try!',
+  together: "Let's count together!",
+  celebrate_1: "We did it! You're so good at counting!",
+  celebrate_2: 'Yay! We counted them all together!',
 };
 
 function checkPrerequisites() {
