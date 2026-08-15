@@ -16,10 +16,12 @@
 //   1. Python 3 with Kokoro + soundfile:
 //        pip install kokoro soundfile
 //      Kokoro pulls in torch and misaki (its G2P library) as dependencies —
-//      the install downloads a fair bit, that's expected.
-//   2. espeak-ng, for phonemization (Kokoro's English fallback path) — per
-//      your note this is already installed.
-//   3. Normal internet access the first time you run this: Kokoro downloads
+//      the install downloads a fair bit, that's expected. misaki's English
+//      extra also pulls in espeakng-loader, which bundles its own
+//      espeak-ng (library + data) — no system espeak-ng install or PATH
+//      entry needed; the worker points phonemizer at the bundled copy
+//      directly (see generate_benny_voice_kokoro.py's _configure_espeak).
+//   2. Normal internet access the first time you run this: Kokoro downloads
 //      its model weights from Hugging Face on first use and caches them
 //      locally after that. (This is exactly the step that isn't possible
 //      from a network-sandboxed dev session — run this script from your
@@ -101,9 +103,24 @@ function checkPrerequisites() {
     process.exit(1);
   }
 
-  const espeak = spawnSync('espeak-ng', ['--version'], { stdio: 'pipe' });
-  if (espeak.error) {
-    console.error("espeak-ng isn't on PATH — Kokoro needs it for English phonemization. Install it first.");
+  // Kokoro doesn't need espeak-ng on PATH — misaki's English extra pulls in
+  // espeakng-loader, which bundles its own espeak-ng library + data. Check
+  // THAT resolves, rather than looking for a system espeak-ng install.
+  const espeakLoaderCheck = [
+    'import espeakng_loader, os',
+    'lib = espeakng_loader.get_library_path()',
+    'data = espeakng_loader.get_data_path()',
+    'assert os.path.exists(lib), f"bundled espeak-ng library not found at {lib}"',
+    'assert os.path.isdir(data), f"bundled espeak-ng data dir not found at {data}"',
+  ].join('\n');
+  const espeakLoader = spawnSync('python3', ['-c', espeakLoaderCheck], { stdio: 'pipe', encoding: 'utf8' });
+  if (espeakLoader.error || espeakLoader.status !== 0) {
+    console.error(
+      "espeakng_loader (Kokoro's bundled espeak-ng) isn't importable/resolvable from python3. It should have\n" +
+        'come in with `pip install kokoro soundfile` (misaki\'s English extra depends on it) — try reinstalling:\n' +
+        '  pip install --force-reinstall kokoro\n\n' +
+        (espeakLoader.stderr ? `Python said:\n${espeakLoader.stderr}\n` : '')
+    );
     process.exit(1);
   }
 }

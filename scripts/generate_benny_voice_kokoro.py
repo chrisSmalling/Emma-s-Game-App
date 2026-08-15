@@ -11,10 +11,48 @@ Node wrapper can report progress without parsing free-form text. On
 failure, prints "ERROR <message>" to stderr and exits non-zero.
 """
 import json
+import os
 import sys
 
 
+def _configure_espeak():
+    """Point phonemizer (misaki/kokoro's English G2P backend) at the
+    espeak-ng bundled by espeakng-loader (a misaki[en] dependency) instead
+    of requiring a system espeak-ng on PATH. Must run before Kokoro/misaki
+    touch phonemizer — phonemizer's EspeakBackend resolves the library on
+    first use, not lazily per-call.
+    """
+    import espeakng_loader
+
+    library_path = espeakng_loader.get_library_path()
+    data_path = espeakng_loader.get_data_path()
+
+    if not os.path.exists(library_path):
+        raise RuntimeError(f"espeakng_loader reported a library path that doesn't exist: {library_path}")
+    if not os.path.isdir(data_path):
+        raise RuntimeError(f"espeakng_loader reported a data path that doesn't exist: {data_path}")
+
+    # Env vars phonemizer's EspeakBackend falls back to if the explicit
+    # wrapper calls below aren't available in the installed version —
+    # belt and suspenders, both point at the same bundled copy.
+    os.environ.setdefault("PHONEMIZER_ESPEAK_LIBRARY", library_path)
+    os.environ.setdefault("PHONEMIZER_ESPEAK_PATH", data_path)
+
+    try:
+        from phonemizer.backend.espeak.wrapper import EspeakWrapper
+
+        EspeakWrapper.set_library(library_path)
+        if hasattr(EspeakWrapper, "set_data_path"):
+            EspeakWrapper.set_data_path(data_path)
+    except Exception:
+        # Older/newer phonemizer versions may not expose these calls — the
+        # env vars set above still point it at the bundled copy either way.
+        pass
+
+
 def main():
+    _configure_espeak()
+
     config = json.load(sys.stdin)
     voice = config["voice"]
     speed = config["speed"]
