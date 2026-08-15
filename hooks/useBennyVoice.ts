@@ -109,16 +109,60 @@ export default function useBennyVoice() {
     };
   }, []);
 
-  async function playFrom(player: AudioPlayer | null | undefined) {
-    if (!player) return;
-    try {
-      // seekTo is async on native (bridge call) — await it before play() so
-      // a rapid re-tap doesn't start playback mid-seek.
-      await player.seekTo(0);
-      player.play();
-    } catch {
-      // ignore
-    }
+  // Every Benny line is awaited by its caller expecting it to have actually
+  // finished speaking before the next beat starts (see useBennyPond.ts's
+  // perform/help/delight sequences) — but play() returns immediately, it
+  // doesn't wait for playback to finish. Two problems followed once real
+  // (non-instant) audio replaced the silent placeholders: sequential lines
+  // overlapped (the next started as soon as play() *returned*, not when the
+  // audio actually ended), and fixed-duration timers (e.g. the wait beat's
+  // timeout) started counting down while a line was still speaking, eating
+  // into — or skipping past — the time meant for her to tap.
+  //
+  // Fix: playFrom now resolves only once the player reports
+  // didJustFinish, and every call is chained through one shared queue so
+  // concurrent calls (e.g. two quick taps) play one at a time in order
+  // instead of stacking on top of each other. A safety timeout guards
+  // against a stalled/never-firing finish event so a bad file can never
+  // wedge the whole interaction (this app's no-fail posture).
+  const playChainRef = useRef<Promise<void>>(Promise.resolve());
+  const PLAYBACK_FINISH_TIMEOUT_MS = 8000;
+
+  function playOne(player: AudioPlayer): Promise<void> {
+    return new Promise<void>(resolve => {
+      let settled = false;
+      let subscription: { remove: () => void } | undefined;
+      const finish = () => {
+        if (settled) return;
+        settled = true;
+        subscription?.remove();
+        clearTimeout(timer);
+        resolve();
+      };
+      const timer = setTimeout(finish, PLAYBACK_FINISH_TIMEOUT_MS);
+
+      subscription = player.addListener('playbackStatusUpdate', status => {
+        if (status.didJustFinish) finish();
+      });
+
+      (async () => {
+        try {
+          // seekTo is async on native (bridge call) — await it before
+          // play() so a rapid re-tap doesn't start playback mid-seek.
+          await player.seekTo(0);
+          player.play();
+        } catch {
+          finish();
+        }
+      })();
+    });
+  }
+
+  function playFrom(player: AudioPlayer | null | undefined): Promise<void> {
+    if (!player) return Promise.resolve();
+    const next = playChainRef.current.then(() => playOne(player));
+    playChainRef.current = next.catch(() => {});
+    return next;
   }
 
   function playGreeting() {
