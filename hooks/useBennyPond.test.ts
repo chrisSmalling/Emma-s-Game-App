@@ -93,10 +93,10 @@ describe('useBennyPond', () => {
     jest.useRealTimers();
   });
 
-  it('starts ungreeted, curious, plays the greeting once', async () => {
+  it('starts ungreeted, idle, plays the greeting once', async () => {
     const { result } = await renderHook(() => useBennyPond());
     expect(result.current.greeted).toBe(false);
-    expect(result.current.bennyState).toBe('curious');
+    expect(result.current.bennyState).toBe('idle');
     expect(result.current.childName).toBe('Emma');
     expect(mockPlayGreeting).toHaveBeenCalledTimes(1);
   });
@@ -130,11 +130,12 @@ describe('useBennyPond', () => {
     expect(result.current.beat).toBe('wait');
     expect(result.current.performCounted).toEqual([0, 1]);
     expect(result.current.fishInteractive).toBe(true);
+    expect(result.current.bennyState).toBe('waiting');
     // the real round underneath is untouched — this was all a visual performance
     expect(mockCountingState.tapItem).not.toHaveBeenCalled();
   });
 
-  it('a tap during wait counts along with her and settles back to happy on a non-completing tap', async () => {
+  it('a tap during wait counts along with her and settles back to waiting on a non-completing tap', async () => {
     const { result } = await renderHook(() => useBennyPond());
     await act(() => result.current.advanceFromGreeting());
     await advance(500 + 750 + 750 + 500 + 400 + 100);
@@ -145,11 +146,13 @@ describe('useBennyPond', () => {
       await Promise.resolve();
     });
     expect(result.current.beat).toBe('together');
-    expect(result.current.bennyState).toBe('countingAlong');
+    expect(result.current.bennyState).toBe('counting');
     expect(mockPlayCount).toHaveBeenLastCalledWith(1);
+    // 2 pulses from his own perform-beat demo (2 fish) + 1 from her tap
+    expect(result.current.countPulse).toBe(3);
 
     await advance(700);
-    expect(result.current.bennyState).toBe('happy');
+    expect(result.current.bennyState).toBe('waiting');
     expect(result.current.beat).toBe('together'); // round isn't done yet (2 fish)
   });
 
@@ -214,9 +217,13 @@ describe('useBennyPond', () => {
       await Promise.resolve();
     });
     expect(result.current.beat).toBe('delight');
+    expect(result.current.bennyState).toBe('celebrating');
+
+    // BEAT_BEFORE_CELEBRATE_MS elapses and the celebrate line plays -> settles to 'proud'
+    await advance(300 + 100);
     expect(result.current.bennyState).toBe('proud');
 
-    await advance(300 + 2600 + 100);
+    await advance(2600);
     expect(mockPlayCelebrate).toHaveBeenCalledTimes(1);
     expect(mockCountingState.nextRound).toHaveBeenCalledTimes(1);
     expect(mockCountingState.restartSession).not.toHaveBeenCalled();

@@ -20,7 +20,10 @@ export const COLORS = {
   forestGlow: '#FFD9A0', // sunbeam / warm highlight
   bennyFur: '#A9744F', // Benny's fur
   bennyFurLight: '#D9AE82', // snout/belly/inner-ear fur
-  bennyScarf: '#E8604C', // Benny's scarf
+  bennyScarf: '#E8604C', // Benny's scarf — his signature detail, always this color
+  bennyInk: '#4A3323', // eyes/nose/mouth — warm dark brown, never pure black
+  bennyOutline: '#7A5636', // soft cartoon outline so same-color parts (arms on body, ears on head) read as distinct
+  bennyBlush: '#F49A82', // warm cheek glow for celebrating/proud
 } as const;
 
 // Apply alpha to a locked palette token instead of hand-writing rgba(...).
@@ -57,6 +60,14 @@ export const MOTION = {
   spring: {
     damping: 12,
     stiffness: 120,
+    mass: 1,
+  },
+  // Softer / slower than `spring` — higher damping, lower stiffness — for
+  // motion that should read as calm and warm rather than a snappy UI pop
+  // (e.g. Benny's character animation). "Warmth over intensity."
+  gentleSpring: {
+    damping: 16,
+    stiffness: 90,
     mass: 1,
   },
   bubble: {

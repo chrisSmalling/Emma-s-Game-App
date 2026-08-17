@@ -41,7 +41,7 @@ const POND_COMPONENTS: Record<LoopComponentId, React.ComponentType<CountableObje
 // screen world the brief asks for. The parent gate floats over the scene
 // instead, same control, no chrome.
 export default function BennyPondScreen({ activityId, onSelectActivity }: Props) {
-  const { childName, greeted, bennyState, beat, variation, items, performCounted, fishInteractive, advanceFromGreeting, handleFishTap } =
+  const { childName, greeted, bennyState, countPulse, beat, variation, items, performCounted, fishInteractive, advanceFromGreeting, handleFishTap } =
     useBennyPond();
   const [bump, setBump] = useState(0);
   const [settingsVisible, setSettingsVisible] = useState(false);
@@ -91,7 +91,7 @@ export default function BennyPondScreen({ activityId, onSelectActivity }: Props)
         </View>
 
         <View style={styles.bennySpot} pointerEvents="none">
-          <Benny state={bennyState} bump={bump} size={150} />
+          <Benny state={bennyState} countPulse={countPulse} bump={bump} size={150} />
         </View>
 
         {!greeted && (
